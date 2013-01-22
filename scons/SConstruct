@@ -1,0 +1,15 @@
+env = Environment()
+
+env['APP_TARGET'] = 'DynaApp'
+env['APP_SOURCES'] = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp',
+		'TimerDisplay.cpp', 'HandCursor.cpp', 'PParams.cpp', 'Gallery.cpp']
+env['ASSETS'] = ['brushes/*', 'pose-anim/*']
+env['RESOURCES'] = ['shaders/*', 'audio/*', 'gfx/*']
+env['ICON'] = '../resources/dynani.icns'
+env['DEBUG'] = 1
+
+env = SConscript('../blocks/msaFluid/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/Cinder-NI/scons/SConscript', exports = 'env')
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
