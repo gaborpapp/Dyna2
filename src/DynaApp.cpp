@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2012 Gabor Papp
+ Copyright (C) 2012-2013 Gabor Papp
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/ImageIo.h"
-//#include "cinder/params/Params.h"
 #include "cinder/Timeline.h"
 #include "cinder/Rand.h"
 #include "cinder/audio/Output.h"
@@ -121,7 +120,6 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		static fs::path sWatermarkedFolder;
 		void saveScreenshot();
 		void threadedScreenshot( Surface snapshot );
-		thread mScreenshotThread;
 		Surface mWatermark;
 
 		void setIdleState();
@@ -149,10 +147,16 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		float mDofAperture;
 		float mDofFocus;
 
+		std::thread mKinectThread;
+		std::mutex mKinectMutex;
+		std::string mKinectProgress;
+		void openKinect( const fs::path &path = fs::path() );
+
 		mndl::ni::OpenNI mNI;
 		mndl::ni::UserTracker mNIUserTracker;
 		gl::Texture mColorTexture;
 		gl::Texture mDepthTexture;
+		bool mVideoMirrored;
 		float mZClip;
 		float mVideoOpacity;
 		float mVideoNoise;
@@ -368,6 +372,9 @@ void DynaApp::setup()
 
 	mParams.addSeparator();
 	mParams.addText("Tracking");
+	mKinectProgress = "Connecting...\0\0\0\0\0\0\0\0\0";
+	mParams.addParam( "Kinect", &mKinectProgress, "", true );
+	mParams.addPersistentParam( "Mirror", &mVideoMirrored, true );
 	mParams.addPersistentParam("Z clip", &mZClip, mZClip, "min=1 max=10000");
 	mParams.addPersistentParam("Skeleton smoothing", &mSkeletonSmoothing, 0.7,
 			"min=0 max=1 step=.05");
@@ -440,30 +447,7 @@ void DynaApp::setup()
 	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
 
 	// OpenNI
-	try
-	{
-		mNI = mndl::ni::OpenNI( mndl::ni::OpenNI::Device() );
-
-		/*
-		string path = getAppPath().string();
-	#ifdef CINDER_MAC
-		path += "/../";
-	#endif
-		//path += "rec-12032014223600.oni";
-		path += "captured.oni";
-		mNI = OpenNI( path );
-		*/
-	}
-	catch (...)
-	{
-		console() << "Could not open Kinect" << endl;
-		quit();
-	}
-	mNI.setMirrored( true );
-	mNI.setDepthAligned();
-	mNI.start();
-	mNIUserTracker = mNI.getUserTracker();
-	mNIUserTracker.addListener( this );
+	mKinectThread = thread( bind( &DynaApp::openKinect, this, fs::path() ) );
 
 	mPoseTimerDisplay = TimerDisplay( RES_TIMER_POSE_BOTTOM_LEFT,
 			RES_TIMER_POSE_BOTTOM_MIDDLE,
@@ -495,11 +479,48 @@ void DynaApp::setup()
 	timeline().add( mGameTimeline );
 	setPoseTimeline();
 
-	setFullScreen( true );
-	hideCursor();
+	//setFullScreen( true );
+	//hideCursor();
 
 	mParams.hide();
 	mGallery->paramsHide();
+}
+
+void DynaApp::openKinect( const fs::path &path )
+{
+	try
+	{
+		mndl::ni::OpenNI kinect;
+		if ( path.empty() )
+			kinect = mndl::ni::OpenNI( mndl::ni::OpenNI::Device() );
+		else
+			kinect = mndl::ni::OpenNI( path );
+		{
+			std::lock_guard< std::mutex > lock( mKinectMutex );
+			mNI = kinect;
+		}
+	}
+	catch ( ... )
+	{
+		if ( path.empty() )
+			mKinectProgress = "No device detected";
+		else
+			mKinectProgress = "Recording not found";
+		return;
+	}
+
+	if ( path.empty() )
+		mKinectProgress = "Connected";
+	else
+		mKinectProgress = "Recording loaded";
+
+	{
+		std::lock_guard< std::mutex > lock( mKinectMutex );
+		mNI.setDepthAligned();
+		mNI.start();
+		mNIUserTracker = mNI.getUserTracker();
+		mNIUserTracker.addListener( this );
+	}
 }
 
 void DynaApp::setPoseTimeline()
@@ -523,6 +544,8 @@ void DynaApp::setPoseTimeline()
 void DynaApp::shutdown()
 {
 	params::PInterfaceGl::save();
+
+	mKinectThread.join();
 }
 
 void DynaApp::saveScreenshot()
@@ -746,222 +769,232 @@ void DynaApp::update()
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
-	mNIUserTracker.setSmoothing( mSkeletonSmoothing );
-
-	double currentTime = getElapsedSeconds();
-
-	// detect start gesture
-	vector< unsigned > users = mNIUserTracker.getUsers();
-	mPoseHoldDuration = 0;
-	for ( vector< unsigned >::const_iterator it = users.begin();
-			it < users.end(); ++it )
 	{
-		unsigned id = *it;
+		std::lock_guard< std::mutex > lock( mKinectMutex );
 
-		map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
-		if ( initIt != mUserInitialized.end() )
+		if ( mNI )
 		{
-			UserInit *ui = &(initIt->second);
+			mNIUserTracker.setSmoothing( mSkeletonSmoothing );
+			if ( mNI.isMirrored() != mVideoMirrored )
+				mNI.setMirrored( mVideoMirrored );
 
-			if (!ui->mRecognized)
+			double currentTime = getElapsedSeconds();
+
+			// detect start gesture
+			vector< unsigned > users = mNIUserTracker.getUsers();
+			mPoseHoldDuration = 0;
+			for ( vector< unsigned >::const_iterator it = users.begin();
+					it < users.end(); ++it )
 			{
-				XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
-					XN_SKEL_RIGHT_HAND };
+				unsigned id = *it;
 
-				XnSkeletonJoint limitIds[] = { XN_SKEL_LEFT_SHOULDER,
-					XN_SKEL_RIGHT_SHOULDER };
-
-				bool initPoseAll = true;
-				for ( int i = 0; i < UserInit::JOINTS; i++ )
+				map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
+				if ( initIt != mUserInitialized.end() )
 				{
-					float handConf;
-					Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i], &handConf );
-					float limitConf;
-					Vec2f limit = mNIUserTracker.getJoint2d( id, limitIds[i], &limitConf );
+					UserInit *ui = &(initIt->second);
 
-					//console() << i << " " << hand << " [" << handConf << "] " << limit << " [" << limitConf << "]" << endl;
-					bool initPose = (handConf > .5) && (limitConf > .5) &&
-						(hand.y < limit.y) && (ui->mJointMovement[i].calcArea() <= mPoseHoldAreaThr );
-					initPoseAll &= initPose;
-					if (initPose)
+					if (!ui->mRecognized)
 					{
-						if (ui->mPoseTimeStart[i] < 0)
-							ui->mPoseTimeStart[i] = currentTime;
+						XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
+							XN_SKEL_RIGHT_HAND };
 
-						if (ui->mJointMovement[i].calcArea() == 0)
+						XnSkeletonJoint limitIds[] = { XN_SKEL_LEFT_SHOULDER,
+							XN_SKEL_RIGHT_SHOULDER };
+
+						bool initPoseAll = true;
+						for ( int i = 0; i < UserInit::JOINTS; i++ )
 						{
-							ui->mJointMovement[i] = Rectf( hand, hand + Vec2f( 1, 1 ) );
+							float handConf;
+							Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i], &handConf );
+							float limitConf;
+							Vec2f limit = mNIUserTracker.getJoint2d( id, limitIds[i], &limitConf );
+
+							//console() << i << " " << hand << " [" << handConf << "] " << limit << " [" << limitConf << "]" << endl;
+							bool initPose = (handConf > .5) && (limitConf > .5) &&
+								(hand.y < limit.y) && (ui->mJointMovement[i].calcArea() <= mPoseHoldAreaThr );
+							initPoseAll &= initPose;
+							if (initPose)
+							{
+								if (ui->mPoseTimeStart[i] < 0)
+									ui->mPoseTimeStart[i] = currentTime;
+
+								if (ui->mJointMovement[i].calcArea() == 0)
+								{
+									ui->mJointMovement[i] = Rectf( hand, hand + Vec2f( 1, 1 ) );
+								}
+								else
+								{
+									ui->mJointMovement[i].include( hand );
+								}
+							}
+							else
+							{
+								// reset if one hand is lost
+								ui->reset();
+							}
+							//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
 						}
-						else
+
+						if ( initPoseAll )
+							poseLostStart = 0;
+
+						bool init = true;
+						float userPoseHoldDuration = 0;
+						for ( int i = 0; i < UserInit::JOINTS; i++ )
 						{
-							ui->mJointMovement[i].include( hand );
+							init = init && ( ui->mPoseTimeStart[i] > 0 ) &&
+								( ( currentTime - ui->mPoseTimeStart[i] ) >= mPoseDuration );
+
+							if (ui->mPoseTimeStart[ i ] > 0)
+								userPoseHoldDuration += currentTime - ui->mPoseTimeStart[ i ];
+						}
+
+						userPoseHoldDuration /= UserInit::JOINTS;
+						if ( mPoseHoldDuration < userPoseHoldDuration)
+							mPoseHoldDuration = userPoseHoldDuration;
+
+						ui->mRecognized = init;
+
+						if ( ui->mRecognized )
+						{
+							// init gesture found clear screen and strokes
+							clearStrokes();
+
+							// new brush
+							ui->setBrush( ui->mBrushIndex + 1 );
+
+							mState = STATE_GAME;
+							// clear pose start
+							ui->reset();
+							mPoseHoldDuration = 0;
+
+							// add callback when game time ends
+							mGameTimer = mGameDuration;
+							mFlash = 0;
+							mGameTimeline->clear(); // clear old callbacks
+							mGameTimeline->apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
 						}
 					}
-					else
-					{
-						// reset if one hand is lost
-						ui->reset();
-					}
-					//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
 				}
-
-				if ( initPoseAll )
-					poseLostStart = 0;
-
-				bool init = true;
-				float userPoseHoldDuration = 0;
-				for ( int i = 0; i < UserInit::JOINTS; i++ )
+				else /* users were cleared */
 				{
-					init = init && ( ui->mPoseTimeStart[i] > 0 ) &&
-						( ( currentTime - ui->mPoseTimeStart[i] ) >= mPoseDuration );
-
-					if (ui->mPoseTimeStart[ i ] > 0)
-						userPoseHoldDuration += currentTime - ui->mPoseTimeStart[ i ];
 				}
-
-				userPoseHoldDuration /= UserInit::JOINTS;
-				if ( mPoseHoldDuration < userPoseHoldDuration)
-					mPoseHoldDuration = userPoseHoldDuration;
-
-				ui->mRecognized = init;
-
-				if ( ui->mRecognized )
-				{
-					// init gesture found clear screen and strokes
-					clearStrokes();
-
-					// new brush
-					ui->setBrush( ui->mBrushIndex + 1 );
-
-					mState = STATE_GAME;
-					// clear pose start
-					ui->reset();
-					mPoseHoldDuration = 0;
-
-					// add callback when game time ends
-					mGameTimer = mGameDuration;
-					mFlash = 0;
-					mGameTimeline->clear(); // clear old callbacks
-					mGameTimeline->apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
-				}
+				//console() << "id: " << id << " " << mUserInitialized[id].mRecognized << endl;
 			}
-		}
-		else /* users were cleared */
-		{
-		}
-		//console() << "id: " << id << " " << mUserInitialized[id].mRecognized << endl;
-	}
 
-	// state change
-	if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
-	{
-		mState = STATE_IDLE_POSE;
-	}
-	else
-	if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
-	{
-		mState = STATE_GAME_POSE;
-		// clear all user pose start times
-		double currentTime = getElapsedSeconds();
-		map< unsigned, UserInit >::iterator initIt;
-		for ( initIt = mUserInitialized.begin(); initIt != mUserInitialized.end(); ++initIt )
-		{
-			UserInit *ui = &(initIt->second);
-			for ( int i = 0; i < UserInit::JOINTS; i++ )
+			// state change
+			if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
 			{
-				ui->mPoseTimeStart[ i ] = currentTime;
+				mState = STATE_IDLE_POSE;
 			}
-		}
-	}
-
-	// change state when pose is cancelled
-	if ( ( ( mState == STATE_GAME_POSE ) || ( mState == STATE_IDLE_POSE ) ) &&
-		 ( mPoseHoldDuration <= 0 ) )
-	{
-		if ( poseLostStart == 0 )
-		{
-			poseLostStart = currentTime;
-		}
-		else
-		if ( ( currentTime - poseLostStart ) > .5 )
-		{
-			if ( mGameTimer > .0 )
-				mState = STATE_GAME;
 			else
-				mState = STATE_IDLE;
-		}
-	}
-
-	// NI user hands
-	mHandCursors.clear();
-	for ( vector< unsigned >::const_iterator it = users.begin();
-			it < users.end(); ++it )
-	{
-		unsigned id = *it;
-
-		//console() << "user hands " << id << " " << mUserInitialized[ id ].mInitialized << endl;
-		map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
-		map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
-		UserInit *ui = &(initIt->second);
-
-		// check if the user has strokes already
-		if ( strokeIt != mUserStrokes.end() )
-		{
-			UserStrokes *us = &(strokeIt->second);
-
-			XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
-				XN_SKEL_RIGHT_HAND };
-			for ( int i = 0; i < UserStrokes::JOINTS; i++ )
-			{
-				Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
-				Vec3f hand3d = mNIUserTracker.getJoint3d( id, jointIds[i] );
-				us->mActive[i] = (hand3d.z < mZClip) && (hand3d.z > 0);
-
-				mHandCursors.push_back( HandCursor( i, hand / Vec2f( 640, 480 ), hand3d.z ) );
-
-				if (us->mActive[i] && !us->mPrevActive[i])
+				if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
 				{
-					mDynaStrokes.push_back( DynaStroke( ui->mBrush ) );
-					DynaStroke *d = &mDynaStrokes.back();
-					d->resize( mFbo.getSize() );
-					d->setStiffness( mK );
-					d->setDamping( mDamping );
-					d->setStrokeMinWidth( mStrokeMinWidth );
-					d->setStrokeMaxWidth( mStrokeMaxWidth );
-					d->setMaxVelocity( mMaxVelocity );
-					us->mStrokes[i] = d;
-				}
-
-				if (us->mActive[i])
-				{
-					hand /= Vec2f( 640, 480 );
-					us->mStrokes[i]->update( hand );
-					if (us->mPrevActive[i])
+					mState = STATE_GAME_POSE;
+					// clear all user pose start times
+					double currentTime = getElapsedSeconds();
+					map< unsigned, UserInit >::iterator initIt;
+					for ( initIt = mUserInitialized.begin(); initIt != mUserInitialized.end(); ++initIt )
 					{
-						Vec2f vel = Vec2f( hand - us->mHand[i] );
-						addToFluid( hand, vel, true, true );
+						UserInit *ui = &(initIt->second);
+						for ( int i = 0; i < UserInit::JOINTS; i++ )
+						{
+							ui->mPoseTimeStart[ i ] = currentTime;
+						}
 					}
-					us->mHand[i] = hand;
 				}
-				us->mPrevActive[i] = us->mActive[i];
-			}
-		}
-		else
-		{
-			// if the user has been initialized with start gesture
-			if ( mUserInitialized[ id ].mRecognized )
+
+			// change state when pose is cancelled
+			if ( ( ( mState == STATE_GAME_POSE ) || ( mState == STATE_IDLE_POSE ) ) &&
+					( mPoseHoldDuration <= 0 ) )
 			{
-				mUserStrokes[ id ] = UserStrokes();
-				mUserInitialized[ id ].mRecognized = false;
+				if ( poseLostStart == 0 )
+				{
+					poseLostStart = currentTime;
+				}
+				else
+					if ( ( currentTime - poseLostStart ) > .5 )
+					{
+						if ( mGameTimer > .0 )
+							mState = STATE_GAME;
+						else
+							mState = STATE_IDLE;
+					}
 			}
+
+			// NI user hands
+			mHandCursors.clear();
+			for ( vector< unsigned >::const_iterator it = users.begin();
+					it < users.end(); ++it )
+			{
+				unsigned id = *it;
+
+				//console() << "user hands " << id << " " << mUserInitialized[ id ].mInitialized << endl;
+				map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
+				map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
+				UserInit *ui = &(initIt->second);
+
+				// check if the user has strokes already
+				if ( strokeIt != mUserStrokes.end() )
+				{
+					UserStrokes *us = &(strokeIt->second);
+
+					XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
+						XN_SKEL_RIGHT_HAND };
+					for ( int i = 0; i < UserStrokes::JOINTS; i++ )
+					{
+						Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
+						Vec3f hand3d = mNIUserTracker.getJoint3d( id, jointIds[i] );
+						us->mActive[i] = (hand3d.z < mZClip) && (hand3d.z > 0);
+
+						mHandCursors.push_back( HandCursor( i, hand / Vec2f( 640, 480 ), hand3d.z ) );
+
+						if (us->mActive[i] && !us->mPrevActive[i])
+						{
+							mDynaStrokes.push_back( DynaStroke( ui->mBrush ) );
+							DynaStroke *d = &mDynaStrokes.back();
+							d->resize( mFbo.getSize() );
+							d->setStiffness( mK );
+							d->setDamping( mDamping );
+							d->setStrokeMinWidth( mStrokeMinWidth );
+							d->setStrokeMaxWidth( mStrokeMaxWidth );
+							d->setMaxVelocity( mMaxVelocity );
+							us->mStrokes[i] = d;
+						}
+
+						if (us->mActive[i])
+						{
+							hand /= Vec2f( 640, 480 );
+							us->mStrokes[i]->update( hand );
+							if (us->mPrevActive[i])
+							{
+								Vec2f vel = Vec2f( hand - us->mHand[i] );
+								addToFluid( hand, vel, true, true );
+							}
+							us->mHand[i] = hand;
+						}
+						us->mPrevActive[i] = us->mActive[i];
+					}
+				}
+				else
+				{
+					// if the user has been initialized with start gesture
+					if ( mUserInitialized[ id ].mRecognized )
+					{
+						mUserStrokes[ id ] = UserStrokes();
+						mUserInitialized[ id ].mRecognized = false;
+					}
+				}
+			}
+
+			// kinect textures
+			if ( mNI.checkNewVideoFrame() )
+				mColorTexture = mNI.getVideoImage();
+			if ( mNI.checkNewDepthFrame() )
+				mDepthTexture = mNI.getDepthImage();
 		}
 	}
 
-	// kinect textures
-	if ( mNI.checkNewVideoFrame() )
-		mColorTexture = mNI.getVideoImage();
-	if ( mNI.checkNewDepthFrame() )
-		mDepthTexture = mNI.getDepthImage();
 
 	// fluid & particles
 	mFluidSolver.update();
