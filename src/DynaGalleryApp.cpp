@@ -101,12 +101,7 @@ void DynaGalleryApp::setup()
 	mGalleryFolder = mGalleryPath.string();
 
 	// params
-#if defined( CINDER_MAC )
-	string paramsXml = getResourcePath().string() + "/params.xml";
-#elif defined( CINDER_MSW )
-	string paramsXml = getAppPath().string() + "/params.xml";
-#endif
-	params::PInterfaceGl::load( paramsXml );
+	params::PInterfaceGl::load( "params.xml" );
 
 	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 200 ), Vec2i( 16, 16 ));
 	mParams.addPersistentSizeAndPosition();
@@ -145,8 +140,7 @@ void DynaGalleryApp::setup()
 
 	mLastTime = getElapsedSeconds();
 
-	mParams.hide();
-	mGallery->paramsHide();
+	params::PInterfaceGl::showAllParams( false );
 }
 
 void DynaGalleryApp::shutdown()
@@ -156,35 +150,41 @@ void DynaGalleryApp::shutdown()
 
 void DynaGalleryApp::keyDown(KeyEvent event)
 {
-	switch( event.getCode())
+	switch ( event.getCode() )
 	{
-	case KeyEvent::KEY_f :
-		{
-			setFullScreen( ! isFullScreen());
-			if( isFullScreen())
-				hideCursor();
-			else
-				showCursor();
-		}
-		break;
-	case KeyEvent::KEY_s :
-		{
-			mParams.show( ! mParams.isVisible());
-			mGallery->paramsShow( ! mGallery->isParamsVisible());
-			if( isFullScreen())
+		case KeyEvent::KEY_f:
+			if ( !isFullScreen() )
 			{
-				if( ! mParams.isVisible())
-					hideCursor();
-				else
+				setFullScreen( true );
+				if ( mParams.isVisible() )
 					showCursor();
+				else
+					hideCursor();
 			}
-		}
-		break;
-	case KeyEvent::KEY_ESCAPE :
-		{
+			else
+			{
+				setFullScreen( false );
+				showCursor();
+			}
+			break;
+
+		case KeyEvent::KEY_s:
+			params::PInterfaceGl::showAllParams( !mParams.isVisible() );
+			if ( isFullScreen() )
+			{
+				if ( mParams.isVisible() )
+					showCursor();
+				else
+					hideCursor();
+			}
+			break;
+
+		case KeyEvent::KEY_ESCAPE:
 			quit();
-		}
-		break;
+			break;
+
+		default:
+			break;
 	}
 }
 

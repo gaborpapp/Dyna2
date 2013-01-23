@@ -27,10 +27,6 @@ class Gallery
 		void update();
 		void render( const ci::Area &area );
 
-		void paramsShow( bool s = true ) { mParams.show( s ); }
-		void paramsHide() { mParams.hide(); }
-		bool isParamsVisible() { return mParams.isVisible(); }
-
 		int getSize() { return mRows * mColumns; }
 		int getWidth() { return mColumns; }
 		int getHeight() { return mRows; }

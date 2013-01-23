@@ -1,3 +1,8 @@
+# FIXME:
+# scons: warning: Two different environments were specified for target Utils.o, PParams.o, Gallery.o
+# but they appear to have the same action: $CXX -o $TARGET -c $CXXFLAGS $CCFLAGS $_CCCOMCOM $SOURCES
+
+# Dyna
 env = Environment()
 
 env['APP_TARGET'] = 'DynaApp'
@@ -12,4 +17,16 @@ env = SConscript('../blocks/msaFluid/scons/SConscript', exports = 'env')
 env = SConscript('../../../blocks/Cinder-NI/scons/SConscript', exports = 'env')
 
 SConscript('../../../scons/SConscript', exports = 'env')
+
+# Gallery
+env2 = Environment()
+
+env2['APP_TARGET'] = 'DynaGalleryApp'
+env2['APP_SOURCES'] = ['DynaGalleryApp.cpp', 'Utils.cpp',
+		'PParams.cpp', 'Gallery.cpp']
+env2['RESOURCES'] = ['shaders/*', 'audio/*', 'gfx/*']
+env2['ICON'] = '../resources/dynani.icns'
+env2['DEBUG'] = env['DEBUG']
+
+SConscript('../../../scons/SConscript', exports = {'env': env2})
 
