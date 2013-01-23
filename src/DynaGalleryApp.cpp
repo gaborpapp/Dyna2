@@ -15,6 +15,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <ctime>
 #include <vector>
 #include <string>
 
@@ -54,7 +55,6 @@ class DynaGalleryApp : public AppBasic
 	private:
 		void drawGallery();
 		void checkNewPictures();
-		void fillPictures();
 
 	private:
 		params::PInterfaceGl  mParams;
@@ -70,9 +70,8 @@ class DynaGalleryApp : public AppBasic
 		fs::path              mGalleryPath;
 		string                mGalleryFolder;
 		float                 mGalleryCheckTime;
-		double                mLastTime;
-		vector< std::string > mPictures;
-		std::recursive_mutex  mMutex;
+		time_t                mLastWriteTime; // newest file time
+		double                mLastCheckTime; // last time the files were checked
 };
 
 void DynaGalleryApp::prepareSettings( Settings *settings )
@@ -133,14 +132,14 @@ void DynaGalleryApp::setup()
 	// gallery
 	mGalleryPath = mGalleryFolder;
 	fs::create_directory( mGalleryPath );
-	fillPictures();
 
 	mGallery = Gallery::create( mGalleryPath );
 
 	setFullScreen( true );
 	hideCursor();
 
-	mLastTime = getElapsedSeconds();
+	mLastWriteTime = 0;
+	mLastCheckTime = getElapsedSeconds();
 
 	params::PInterfaceGl::showAllParams( false );
 }
@@ -204,7 +203,6 @@ void DynaGalleryApp::update()
 		{
 			mGalleryPath = mGalleryFolder;
 			mGallery->setFolder( mGalleryPath );
-			fillPictures();
 		}
 	}
 
@@ -213,46 +211,35 @@ void DynaGalleryApp::update()
 	mGallery->update();
 }
 
-void DynaGalleryApp::fillPictures()
+void DynaGalleryApp::checkNewPictures()
 {
-	mPictures.clear();
+	double time = getElapsedSeconds();
 
+	if( time - mLastCheckTime < mGalleryCheckTime )
+		return;
+
+	time_t latestFileTimeRead = mLastWriteTime;
 	for( fs::directory_iterator it( mGalleryPath ); it != fs::directory_iterator(); ++it )
 	{
 		if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
 		{
-			std::string fileName = it->path().filename().string();
-			mPictures.push_back( fileName );
-		}
-	}
-}
-
-void DynaGalleryApp::checkNewPictures()
-{
-	double time = getElapsedSeconds();
-	if( time - mLastTime < mGalleryCheckTime )
-		return;
-
-	mLastTime = time;
-
-	{
-		lock_guard<recursive_mutex> lock( mMutex );
-		for( fs::directory_iterator it( mGalleryPath ); it != fs::directory_iterator(); ++it )
-		{
-			if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
+			time_t writeTime = fs::last_write_time( it->path() );
+			if( writeTime >= mLastWriteTime ) // newer file
 			{
-				std::string fileName = it->path().filename().string();
-				if( std::find( mPictures.begin(), mPictures.end(), fileName ) == mPictures.end())
+				try
 				{
-					mPictures.push_back( fileName );
-
-					int toPic = -1;
-					toPic = Rand::randInt( 0, mGallery->getSize());
-					mGallery->addImage( mGalleryPath / fileName, toPic );
+					mGallery->addImage( it->path() );
+					if( writeTime > latestFileTimeRead )
+						latestFileTimeRead = writeTime;
 				}
+				catch( const ImageIoException &exc )
+				{ }
+
 			}
 		}
 	}
+	mLastWriteTime = latestFileTimeRead;
+	mLastCheckTime = time;
 }
 
 void DynaGalleryApp::drawGallery()
