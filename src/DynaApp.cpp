@@ -114,8 +114,8 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
-		const static string SCREENSHOT_FOLDER  = "screenshots/";
-		const static string WATERMARKED_FOLDER = "watermarked/";
+		#define SCREENSHOT_FOLDER "screenshots/"
+		#define WATERMARKED_FOLDER "watermarked/"
 		fs::path mScreenshotPath;
 		fs::path mWatermarkedPath;
 		string mScreenshotFolder; // mScreenshotPath as string that params can handle
