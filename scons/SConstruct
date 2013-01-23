@@ -25,6 +25,7 @@ env2['APP_TARGET'] = 'DynaGalleryApp'
 env2['APP_SOURCES'] = ['DynaGalleryApp.cpp', 'Utils.cpp',
 		'PParams.cpp', 'Gallery.cpp']
 env2['RESOURCES'] = ['shaders/*', 'audio/*', 'gfx/*']
+env2['ASSETS'] = ['gfx/dynagallery/*']
 env2['ICON'] = '../resources/dynani.icns'
 env2['DEBUG'] = env['DEBUG']
 
