@@ -12,10 +12,7 @@
 using namespace ci;
 using namespace std;
 
-Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
-: mGalleryFolder( folder )
-, mLastRows( -1 )
-, mLastColumns( -1 )
+void Gallery::setup( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 {
 	mGalleryShader = gl::GlslProg( app::loadResource( RES_PASSTHROUGH_VERT ), app::loadResource( RES_GALLERY_FRAG ));
 
@@ -100,8 +97,8 @@ void Gallery::refreshPictures()
 	}
 
 	mPictures.clear();
-	for( int i = 0; i < mRows * mColumns; i++ )
-		mPictures.push_back( Picture( this ));
+	for ( int i = 0; i < mRows * mColumns; i++ )
+		mPictures.push_back( Picture( shared_from_this() ) );
 }
 
 void Gallery::reset()
@@ -189,7 +186,7 @@ void Gallery::render( const Area &area )
 	gl::disable( GL_TEXTURE_2D );
 }
 
-Gallery::Picture::Picture( Gallery *g )
+Gallery::Picture::Picture( GalleryRef g )
 	: mGallery( g ),
 	zooming( false )
 {

@@ -1,24 +1,36 @@
 #pragma once
 #include <vector>
 
-#include "cinder/Rect.h"
-#include "cinder/Area.h"
-#include "cinder/gl/Texture.h"
 #include "cinder/gl/GlslProg.h"
+#include "cinder/gl/Texture.h"
+
+#include "cinder/Area.h"
+#include "cinder/Cinder.h"
 #include "cinder/Filesystem.h"
+#include "cinder/Rect.h"
 #include "cinder/Timeline.h"
 
 #include "PParams.h"
 
-class Gallery
+typedef std::shared_ptr< class Gallery > GalleryRef;
+
+class Gallery : public std::enable_shared_from_this< Gallery >
 {
 	public:
-		Gallery( ci::fs::path &folder, int rows = 3, int columns = 4 );
+		void setup( ci::fs::path &folder, int rows = 3, int columns = 4 );
+
+		static GalleryRef create( ci::fs::path &folder, int rows = 3, int columns = 4 )
+		{
+			GalleryRef gallery( new Gallery() );
+			gallery->setup( folder, rows, columns );
+			return gallery;
+		}
 
 		void resize( int rows, int columns);
 		void refreshList();
 		void refreshPictures();
 		void setFolder( ci::fs::path &folder );
+		const ci::fs::path &getFolder() const { return mGalleryFolder; }
 
 		void addImage( ci::fs::path imagePath, int pictureIndex = -1 );
 		void zoomImage( int pictureIndex );
@@ -34,7 +46,7 @@ class Gallery
 		class Picture
 		{
 			public:
-				Picture( Gallery *g );
+				Picture( GalleryRef g );
 
 				void reset();
 				void render( const ci::Rectf &rect );
@@ -50,7 +62,7 @@ class Gallery
 				void setRandomTexture();
 
 				ci::gl::Texture mTexture;
-				Gallery *mGallery;
+				GalleryRef mGallery;
 
 				double flipStart;
 				bool flipping;
@@ -79,9 +91,9 @@ class Gallery
 		ci::fs::path mGalleryFolder;
 		std::vector< ci::fs::path > mFiles;
 		std::vector< ci::gl::Texture > mTextures;
-		int mRows, mLastRows;
+		int mRows, mLastRows = -1;
 		int mMaxTextures;
-		int mColumns, mLastColumns;
+		int mColumns, mLastColumns = -1;
 
 		float mHorizontalMargin;
 		float mVerticalMargin;

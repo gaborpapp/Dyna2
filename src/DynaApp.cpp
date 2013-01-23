@@ -257,7 +257,7 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		} States;
 		int mState;
 
-		shared_ptr< Gallery > mGallery;
+		GalleryRef mGallery;
 
 		vector< fs::path > mNewImages;
 		std::recursive_mutex mMutex;
@@ -475,7 +475,7 @@ void DynaApp::setup()
 	fs::create_directory( sScreenshotFolder );
 	fs::create_directory( sWatermarkedFolder );
 
-	mGallery = shared_ptr< Gallery >( new Gallery( sScreenshotFolder ) );
+	mGallery = Gallery::create( sScreenshotFolder );
 
 	timeline().add( mGameTimeline );
 	setPoseTimeline();

@@ -68,7 +68,7 @@ class DynaGalleryApp : public AppBasic
 
 		float                 mFps;
 
-		shared_ptr< Gallery > mGallery;
+		GalleryRef            mGallery;
 		fs::path              mGalleryPath;
 		string                mGalleryFolder;
 		float                 mGalleryCheckTime;
@@ -133,7 +133,7 @@ void DynaGalleryApp::setup()
 	fs::create_directory( mGalleryPath );
 	fillPictures();
 
-	mGallery = shared_ptr< Gallery >( new Gallery( mGalleryPath ));
+	mGallery = Gallery::create( mGalleryPath );
 
 	setFullScreen( true );
 	hideCursor();
