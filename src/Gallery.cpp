@@ -13,7 +13,9 @@ using namespace ci;
 using namespace std;
 
 Gallery::Gallery() :
-	mImageLoaderThreadShouldQuit( false )
+	mImageLoaderThreadShouldQuit( false ),
+	mLastRows( -1 ),
+	mLastColumns( -1 )
 {
 	mImageLoaderThread = shared_ptr< thread >( new thread( bind( &Gallery::loaderThreadFn, this ) ) );
 
@@ -68,11 +70,6 @@ void Gallery::resize( int rows, int columns )
 		mLastRows = mRows;
 		mLastColumns = mColumns;
 	}
-}
-
-void Gallery::addImage( fs::path imagePath, int pictureIndex /* = -1 */ )
-{
-	mImagePaths->tryPushFront( ImageIn( imagePath, pictureIndex ) );
 }
 
 void Gallery::addImage( gl::Texture texture, int pictureIndex /* = -1 */ )
@@ -138,7 +135,13 @@ void Gallery::refreshPictures()
 	int filesStart = mFiles.size() - n;
 	for( int i = filesStart; i < filesStart + n; i++ )
 	{
-		mTextures.push_back( gl::Texture( loadImage( mFiles[ i ] )));
+		try
+		{
+			mTextures.push_back( gl::Texture( loadImage( mFiles[ i ] )));
+		}
+		catch( const ImageIoException &exc )
+		{
+		}
 	}
 
 	mPictures.clear();

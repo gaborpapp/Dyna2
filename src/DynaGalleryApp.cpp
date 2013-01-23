@@ -18,6 +18,7 @@
 #include <ctime>
 #include <vector>
 #include <string>
+#include <set>
 
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
@@ -55,6 +56,8 @@ class DynaGalleryApp : public AppBasic
 	private:
 		void drawGallery();
 		void checkNewPictures();
+		void checkNewPicturesThread( fs::path galleryPath );
+		void addNewPictures();
 
 	private:
 		params::PInterfaceGl  mParams;
@@ -70,8 +73,14 @@ class DynaGalleryApp : public AppBasic
 		fs::path              mGalleryPath;
 		string                mGalleryFolder;
 		float                 mGalleryCheckTime;
-		time_t                mLastWriteTime; // newest file time
+//		time_t                mLastWriteTime; // newest file time
 		double                mLastCheckTime; // last time the files were checked
+
+		vector< Surface >     mNewImages;
+		std::recursive_mutex  mMutexNewImages;
+		set<string>           mFileNames;
+		std::recursive_mutex  mMutexFileNames;
+		std::thread           mNewPicturesThread;
 };
 
 void DynaGalleryApp::prepareSettings( Settings *settings )
@@ -113,7 +122,7 @@ void DynaGalleryApp::setup()
 	mParams.addButton( "Choose gallery folder",
 			[ this ]()
 			{
-				fs::path newPath = app::App::getFolderPath( this->mGalleryPath );
+				fs::path newPath = app::App::get()->getFolderPath( this->mGalleryPath );
 				if ( !newPath.empty() )
 					this->mGalleryFolder = newPath.string();
 			} );
@@ -138,7 +147,7 @@ void DynaGalleryApp::setup()
 	//setFullScreen( true );
 	//hideCursor();
 
-	mLastWriteTime = 0;
+//	mLastWriteTime = 0;
 	mLastCheckTime = getElapsedSeconds();
 
 	params::PInterfaceGl::showAllParams( false );
@@ -203,10 +212,15 @@ void DynaGalleryApp::update()
 		{
 			mGalleryPath = mGalleryFolder;
 			mGallery->setFolder( mGalleryPath );
+//			mLastWriteTime = 0;
+
+			lock_guard<recursive_mutex> lock( mMutexFileNames );
+			mFileNames.clear();
 		}
 	}
 
 	checkNewPictures();
+	addNewPictures();
 
 	mGallery->update();
 }
@@ -218,28 +232,75 @@ void DynaGalleryApp::checkNewPictures()
 	if( time - mLastCheckTime < mGalleryCheckTime )
 		return;
 
-	time_t latestFileTimeRead = mLastWriteTime;
-	for( fs::directory_iterator it( mGalleryPath ); it != fs::directory_iterator(); ++it )
+	mNewPicturesThread = thread( bind( &DynaGalleryApp::checkNewPicturesThread, this, mGalleryPath ));
+
+	mLastCheckTime = time;
+}
+
+void DynaGalleryApp::checkNewPicturesThread( fs::path galleryPath )
+{
+	for( fs::directory_iterator it( galleryPath ); it != fs::directory_iterator(); ++it )
 	{
 		if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
 		{
-			time_t writeTime = fs::last_write_time( it->path() );
-			if( writeTime >= mLastWriteTime ) // newer file
+			lock_guard<recursive_mutex> lock( mMutexFileNames );
+			if( mFileNames.find( it->path().filename().string()) == mFileNames.end())
 			{
 				try
 				{
-					mGallery->addImage( it->path() );
-					if( writeTime > latestFileTimeRead )
-						latestFileTimeRead = writeTime;
+					Surface surface = loadImage( it->path());
+
+					{
+						lock_guard<recursive_mutex> lock( mMutexNewImages );
+						mNewImages.push_back( surface );
+					}
+
+					mFileNames.insert( it->path().filename().string());
 				}
 				catch( const ImageIoException &exc )
-				{ }
-
+				{
+				}
 			}
 		}
 	}
-	mLastWriteTime = latestFileTimeRead;
-	mLastCheckTime = time;
+
+// 	time_t latestFileTimeRead = mLastWriteTime;
+// 	for( fs::directory_iterator it( galleryPath ); it != fs::directory_iterator(); ++it )
+// 	{
+// 		if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
+// 		{
+// 			time_t writeTime = fs::last_write_time( it->path() );
+// 			if( writeTime > mLastWriteTime ) // newer file
+// 			{
+// 				try
+// 				{
+// 					Surface surface = loadImage( it->path());
+// 
+// 					{
+// 						lock_guard<recursive_mutex> lock( mMutex );
+// 						mNewImages.push_back( surface );
+// 					}
+// 
+// 					if( writeTime > latestFileTimeRead )
+// 						latestFileTimeRead = writeTime;
+// 				}
+// 				catch( const ImageIoException &exc )
+// 				{
+// 				}
+// 			}
+// 		}
+// 	}
+// 	mLastWriteTime = latestFileTimeRead;
+}
+
+void DynaGalleryApp::addNewPictures()
+{
+	lock_guard<recursive_mutex> lock( mMutexNewImages );
+	for( auto it = mNewImages.begin(); it != mNewImages.end(); ++it )
+	{
+		mGallery->addImage( *it );
+	}
+	mNewImages.clear();
 }
 
 void DynaGalleryApp::drawGallery()

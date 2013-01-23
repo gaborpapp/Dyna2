@@ -36,7 +36,6 @@ class Gallery : public std::enable_shared_from_this< Gallery >
 		void setFolder( ci::fs::path &folder );
 		const ci::fs::path &getFolder() const { return mGalleryFolder; }
 
-		void addImage( ci::fs::path imagePath, int pictureIndex = -1 );
 		void addImage( ci::gl::Texture texture, int pictureIndex = -1 );
 
 		void zoomImage( int pictureIndex );
@@ -97,9 +96,9 @@ class Gallery : public std::enable_shared_from_this< Gallery >
 		ci::fs::path mGalleryFolder;
 		std::vector< ci::fs::path > mFiles;
 		std::vector< ci::gl::Texture > mTextures;
-		int mRows, mLastRows = -1;
+		int mRows, mLastRows;
 		int mMaxTextures;
-		int mColumns, mLastColumns = -1;
+		int mColumns, mLastColumns;
 
 		float mHorizontalMargin;
 		float mVerticalMargin;

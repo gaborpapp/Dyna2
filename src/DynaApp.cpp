@@ -114,8 +114,8 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
-		const string SCREENSHOT_FOLDER  = "screenshots/";
-		const string WATERMARKED_FOLDER = "watermarked/";
+		const static string SCREENSHOT_FOLDER  = "screenshots/";
+		const static string WATERMARKED_FOLDER = "watermarked/";
 		fs::path mScreenshotPath;
 		fs::path mWatermarkedPath;
 		string mScreenshotFolder; // mScreenshotPath as string that params can handle
@@ -323,7 +323,7 @@ void DynaApp::setup()
 	mParams.addButton( "Choose screenshot folder",
 			[ this ]()
 			{
-				fs::path newScreenshotPath = app::App::getFolderPath( this->mScreenshotPath );
+				fs::path newScreenshotPath = app::App::get()->getFolderPath( this->mScreenshotPath );
 				if ( !newScreenshotPath.empty() )
 					this->mScreenshotFolder = newScreenshotPath.string();
 			} );
@@ -331,7 +331,7 @@ void DynaApp::setup()
 	mParams.addButton( "Choose watermarked folder",
 			[ this ]()
 			{
-				fs::path newWatermarkedPath = app::App::getFolderPath( this->mWatermarkedPath );
+				fs::path newWatermarkedPath = app::App::get()->getFolderPath( this->mWatermarkedPath );
 				if ( !newWatermarkedPath.empty() )
 					this->mWatermarkedFolder = newWatermarkedPath.string();
 			} );
