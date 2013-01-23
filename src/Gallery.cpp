@@ -12,6 +12,21 @@
 using namespace ci;
 using namespace std;
 
+Gallery::Gallery() :
+	mImageLoaderThreadShouldQuit( false )
+{
+	mImageLoaderThread = shared_ptr< thread >( new thread( bind( &Gallery::loaderThreadFn, this ) ) );
+
+	mSurfaces = new ConcurrentCircularBuffer< SurfaceOut >( 16 );
+	mImagePaths = new ConcurrentCircularBuffer< ImageIn >( 16 );
+}
+
+Gallery::~Gallery()
+{
+	mImageLoaderThreadShouldQuit = true;
+	mImageLoaderThread->join();
+}
+
 void Gallery::setup( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 {
 	mGalleryShader = gl::GlslProg( app::loadResource( RES_PASSTHROUGH_VERT ), app::loadResource( RES_GALLERY_FRAG ));
@@ -57,8 +72,7 @@ void Gallery::resize( int rows, int columns )
 
 void Gallery::addImage( fs::path imagePath, int pictureIndex /* = -1 */ )
 {
-	gl::Texture texture( loadImage( imagePath ));
-	addImage( texture, pictureIndex );
+	mImagePaths->tryPushFront( ImageIn( imagePath, pictureIndex ) );
 }
 
 void Gallery::addImage( gl::Texture texture, int pictureIndex /* = -1 */ )
@@ -70,6 +84,27 @@ void Gallery::addImage( gl::Texture texture, int pictureIndex /* = -1 */ )
 	if(( pictureIndex >= 0 ) && ( pictureIndex < mPictures.size()))
 	{
 		mPictures[ pictureIndex ].setTexture( mTextures.back());
+	}
+}
+
+void Gallery::loaderThreadFn()
+{
+	while ( !mImageLoaderThreadShouldQuit )
+	{
+		if ( mImagePaths->isNotEmpty() )
+		{
+			ImageIn image;
+			mImagePaths->popBack( &image );
+			try
+			{
+				SurfaceOut surfOut( image.mPath, image.mPictureId, loadImage( image.mPath ) );
+				mSurfaces->pushFront( surfOut );
+			}
+			catch( const ImageIoException &exc )
+			{
+				app::console() << "failed to load " << image.mPath.string() << endl;
+			}
+		}
 	}
 }
 
@@ -130,6 +165,14 @@ void Gallery::setFolder( ci::fs::path &path )
 void Gallery::update()
 {
 	double currentTime = app::getElapsedSeconds();
+
+	// get textures from loaded images in thread
+	if ( mSurfaces->isNotEmpty() )
+	{
+		SurfaceOut surfOut;
+		mSurfaces->popBack( &surfOut );
+		addImage( gl::Texture( surfOut.mSurface ), surfOut.mPictureId );
+	}
 
 	if(( currentTime - mLastFlip ) >= mFlipFrequency )
 	{

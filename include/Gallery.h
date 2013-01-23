@@ -6,6 +6,7 @@
 
 #include "cinder/Area.h"
 #include "cinder/Cinder.h"
+#include "cinder/ConcurrentCircularBuffer.h"
 #include "cinder/Filesystem.h"
 #include "cinder/Rect.h"
 #include "cinder/Timeline.h"
@@ -17,6 +18,9 @@ typedef std::shared_ptr< class Gallery > GalleryRef;
 class Gallery : public std::enable_shared_from_this< Gallery >
 {
 	public:
+		Gallery();
+		~Gallery();
+
 		void setup( ci::fs::path &folder, int rows = 3, int columns = 4 );
 
 		static GalleryRef create( ci::fs::path &folder, int rows = 3, int columns = 4 )
@@ -114,5 +118,26 @@ class Gallery : public std::enable_shared_from_this< Gallery >
 		ci::gl::GlslProg mGalleryShader;
 
 		ci::TimelineRef mTimeline;
+
+		void loaderThreadFn();
+		std::shared_ptr< std::thread > mImageLoaderThread;
+		bool mImageLoaderThreadShouldQuit;
+		struct ImageIn
+		{
+			ImageIn() {}
+			ImageIn( ci::fs::path path, int id ) : mPath( path ), mPictureId( id ) {}
+			ci::fs::path mPath;
+			int mPictureId;
+		};
+		struct SurfaceOut
+		{
+			SurfaceOut() {}
+			SurfaceOut( ci::fs::path path, int id, ci::Surface surface ) : mPath( path ), mPictureId( id ), mSurface( surface ) {}
+			ci::fs::path mPath;
+			int mPictureId;
+			ci::Surface mSurface;
+		};
+		ci::ConcurrentCircularBuffer< SurfaceOut > *mSurfaces;
+		ci::ConcurrentCircularBuffer< ImageIn > *mImagePaths;
 };
 
