@@ -17,14 +17,12 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 , mLastRows( -1 )
 , mLastColumns( -1 )
 {
-	setFolder( folder );
-
 	mGalleryShader = gl::GlslProg( app::loadResource( RES_PASSTHROUGH_VERT ), app::loadResource( RES_GALLERY_FRAG ));
 
 	mParams = params::PInterfaceGl("Gallery", Vec2i( 300, 200 ), Vec2i( 350, 16 ));
 	mParams.addPersistentSizeAndPosition();
-	mParams.addPersistentParam("Rows", &mRows, mRows, "min=1 max=15");
-	mParams.addPersistentParam("Columns", &mColumns, mColumns, "min=1 max=15");
+	mParams.addPersistentParam("Rows", &mRows, rows, "min=1 max=15");
+	mParams.addPersistentParam("Columns", &mColumns, columns, "min=1 max=15");
 
 	mParams.addPersistentParam("Horizontal margin", &mHorizontalMargin, .05, "min=.0 max=.5 step=.005");
 
@@ -34,6 +32,8 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 
 	mParams.addPersistentParam("Flip duration", &Picture::sFlipDuration, 2.5, "min=.5 max=10. step=.5");
 	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
+
+	setFolder( folder );
 
 	reset();
 	mTimeline = Timeline::create();
@@ -91,6 +91,7 @@ void Gallery::refreshPictures()
 {
 	mTextures.clear();
 	mMaxTextures = 3 * mRows * mColumns;
+
 	int n = min( mMaxTextures, (int)mFiles.size());
 	int filesStart = mFiles.size() - n;
 	for( int i = filesStart; i < filesStart + n; i++ )
