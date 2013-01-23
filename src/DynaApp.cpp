@@ -116,8 +116,12 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
-		static fs::path sScreenshotFolder;
-		static fs::path sWatermarkedFolder;
+		const string SCREENSHOT_FOLDER  = "screenshots/";
+		const string WATERMARKED_FOLDER = "watermarked/";
+		fs::path mScreenshotPath;
+		fs::path mWatermarkedPath;
+		string mScreenshotFolder; // mScreenshotPath as string that params can handle
+		string mWatermarkedFolder;
 		void saveScreenshot();
 		void threadedScreenshot( Surface snapshot );
 		Surface mWatermark;
@@ -266,12 +270,6 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 vector< gl::Texture > DynaApp::sBrushes;
 vector< gl::Texture > DynaApp::sPoseAnim;
 
-#define SCREENSHOT_FOLDER "screenshots/"
-fs::path DynaApp::sScreenshotFolder( "" );
-#define WATERMARKED_FOLDER "watermarked/"
-fs::path DynaApp::sWatermarkedFolder( "" );
-
-
 void DynaApp::prepareSettings(Settings *settings)
 {
 	settings->setWindowSize(640, 480);
@@ -328,6 +326,36 @@ void DynaApp::setup()
 	mParams = params::PInterfaceGl("Parameters", Vec2i(350, 700));
 	mParams.addPersistentSizeAndPosition();
 
+	mKinectProgress = "Connecting...\0\0\0\0\0\0\0\0\0";
+	mParams.addParam( "Kinect", &mKinectProgress, "", true );
+	mParams.addPersistentParam( "Screenshot folder", &mScreenshotFolder, "", "", true );
+	mParams.addButton( "Choose screenshot folder",
+			[ this ]()
+			{
+				fs::path newScreenshotPath = app::App::getFolderPath( this->mScreenshotPath );
+				if ( !newScreenshotPath.empty() )
+					this->mScreenshotFolder = newScreenshotPath.string();
+			} );
+	mParams.addPersistentParam( "Watermarked folder", &mWatermarkedFolder, "", "", true );
+	mParams.addButton( "Choose watermarked folder",
+			[ this ]()
+			{
+				fs::path newWatermarkedPath = app::App::getFolderPath( this->mWatermarkedPath );
+				if ( !newWatermarkedPath.empty() )
+					this->mWatermarkedFolder = newWatermarkedPath.string();
+			} );
+	mParams.addSeparator();
+
+	mParams.addText("Tracking");
+	mParams.addPersistentParam( "Mirror", &mVideoMirrored, true );
+	mParams.addPersistentParam("Z clip", &mZClip, mZClip, "min=1 max=10000");
+	mParams.addPersistentParam("Skeleton smoothing", &mSkeletonSmoothing, 0.7,
+			"min=0 max=1 step=.05");
+	mParams.addPersistentParam("Start pose movement", &mPoseHoldAreaThr, mPoseHoldAreaThr,
+			"min=10 max=10000 "
+			"help='allowed area of hand movement during start pose without losing the pose'");
+	mParams.addSeparator();
+
 	mParams.addText("Brush simulation");
 	mParams.addPersistentParam("Brush color", &mBrushColor, mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addPersistentParam("Stiffness", &mK, mK, "min=.01 max=.2 step=.01");
@@ -365,18 +393,6 @@ void DynaApp::setup()
 	mParams.addPersistentParam("Enable cursors", &mShowHands, mShowHands);
 	mParams.addPersistentParam("Cursor persp", &mHandPosCoeff, mHandPosCoeff, "min=100. max=20000. step=1");
 	mParams.addPersistentParam("Cursor transparency", &mHandTransparencyCoeff, mHandTransparencyCoeff, "min=100. max=20000. step=1");
-
-	mParams.addSeparator();
-	mParams.addText("Tracking");
-	mKinectProgress = "Connecting...\0\0\0\0\0\0\0\0\0";
-	mParams.addParam( "Kinect", &mKinectProgress, "", true );
-	mParams.addPersistentParam( "Mirror", &mVideoMirrored, true );
-	mParams.addPersistentParam("Z clip", &mZClip, mZClip, "min=1 max=10000");
-	mParams.addPersistentParam("Skeleton smoothing", &mSkeletonSmoothing, 0.7,
-			"min=0 max=1 step=.05");
-	mParams.addPersistentParam("Start pose movement", &mPoseHoldAreaThr, mPoseHoldAreaThr,
-			"min=10 max=10000 "
-			"help='allowed area of hand movement during start pose without losing the pose'");
 
 	mParams.addSeparator();
 	mParams.addText("Game logic");
@@ -464,18 +480,29 @@ void DynaApp::setup()
 	Rand::randomize();
 
 	// gallery
-	sScreenshotFolder = getAppPath();
+	// initialize directory names on first run
+	if ( ( mScreenshotFolder == "" ) || ( mWatermarkedFolder == "" ) )
+	{
+		mScreenshotPath = getAppPath();
 #ifdef CINDER_MAC
-	sScreenshotFolder /= "..";
+		mScreenshotPath /= "..";
+		mScreenshotPath = fs::canonical( mScreenshotPath );
 #endif
-	sWatermarkedFolder = sScreenshotFolder;
-	sScreenshotFolder /= SCREENSHOT_FOLDER;
-	sWatermarkedFolder /= WATERMARKED_FOLDER;
+		mWatermarkedPath = mScreenshotPath;
+		mScreenshotPath /= SCREENSHOT_FOLDER;
+		mWatermarkedPath /= WATERMARKED_FOLDER;
+		mScreenshotFolder = mScreenshotPath.string();
+		mWatermarkedFolder = mWatermarkedPath.string();
+	}
 
-	fs::create_directory( sScreenshotFolder );
-	fs::create_directory( sWatermarkedFolder );
+	// restore path from strings saved in params
+	mScreenshotPath = mScreenshotFolder;
+	mWatermarkedPath = mWatermarkedFolder;
 
-	mGallery = Gallery::create( sScreenshotFolder );
+	fs::create_directory( mScreenshotPath );
+	fs::create_directory( mWatermarkedPath );
+
+	mGallery = Gallery::create( mScreenshotPath );
 
 	timeline().add( mGameTimeline );
 	setPoseTimeline();
@@ -563,7 +590,7 @@ void DynaApp::saveScreenshot()
 void DynaApp::threadedScreenshot( Surface snapshot )
 {
 	string filename = "snap-" + timeStamp() + ".png";
-	fs::path pngPath( sScreenshotFolder / fs::path( filename ) );
+	fs::path pngPath( mScreenshotFolder / fs::path( filename ) );
 
 	try
 	{
@@ -585,7 +612,7 @@ void DynaApp::threadedScreenshot( Surface snapshot )
 	// watermarked
 	snapshot.copyFrom( mWatermark, mWatermark.getBounds(),
 				snapshot.getSize() - mWatermark.getSize() );
-	pngPath = sWatermarkedFolder / fs::path( "w" + filename );
+	pngPath = mWatermarkedPath / fs::path( "w" + filename );
 	try
 	{
 		if (!pngPath.empty())
@@ -778,6 +805,13 @@ void DynaApp::update()
 	static double poseLostStart = 0;
 
 	mFps = getAverageFps();
+
+	// screenshot folder updated
+	if ( mScreenshotPath != mScreenshotFolder )
+	{
+		mScreenshotPath = mScreenshotFolder;
+		mGallery->setFolder( mScreenshotPath );
+	}
 
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
