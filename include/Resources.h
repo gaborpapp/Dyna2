@@ -6,7 +6,6 @@
 
 #define RES_PASSTHROUGH_VERT	CINDER_RESOURCE(../resources/, shaders/PassThrough.vert, 131, GLSL)
 #define RES_MIXER_FRAG			CINDER_RESOURCE(../resources/, shaders/Mixer.frag, 133, GLSL)
-#define RES_DOF_FRAG			CINDER_RESOURCE(../resources/, shaders/DoF.frag, 134, GLSL)
 
 #define RES_GALLERY_FRAG		CINDER_RESOURCE(../resources/, shaders/Gallery.frag, 148, GLSL)
 

@@ -135,19 +135,12 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 
 		gl::Fbo mFbo;
 		gl::Fbo mBloomFbo;
-		gl::Fbo mDofFbo;
 		gl::Fbo mOutputFbo;
 		gl::GlslProg mBloomShader;
 		gl::GlslProg mMixerShader;
-		gl::GlslProg mDofShader;
 
 		int mBloomIterations;
 		float mBloomStrength;
-
-		bool mDof;
-		float mDofAmount;
-		float mDofAperture;
-		float mDofFocus;
 
 		std::thread mKinectThread;
 		std::mutex mKinectMutex;
@@ -295,10 +288,6 @@ DynaApp::DynaApp() :
 	mEnableVignetting( true ),
 	mEnableTvLines( true ),
 	mFlash( .0 ),
-	mDof( false ),
-	mDofAmount( 190. ),
-	mDofAperture( .99 ),
-	mDofFocus( .2 ),
 	mPoseDuration( 2. ),
 	mGameDuration( 20. ),
 	mHandPosCoeff( 500. ),
@@ -321,7 +310,7 @@ void DynaApp::setup()
 	// params
 	params::PInterfaceGl::load( "params.xml" );
 
-	mParams = params::PInterfaceGl("Parameters", Vec2i(350, 700));
+	mParams = params::PInterfaceGl("Parameters", Vec2i(320, 760));
 	mParams.addPersistentSizeAndPosition();
 
 	mKinectProgress = "Connecting...\0\0\0\0\0\0\0\0\0";
@@ -382,12 +371,7 @@ void DynaApp::setup()
 	mParams.addPersistentParam("Bloom iterations", &mBloomIterations, mBloomIterations, "min=0 max=8");
 	mParams.addPersistentParam("Bloom strength", &mBloomStrength, mBloomStrength, "min=0 max=1. step=.05");
 	mParams.addSeparator();
-	mParams.addPersistentParam("Dof", &mDof, mDof);
-	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
-	mParams.addParam("Dof aperture", &mDofAperture, "min=0 max=1. step=.01");
-	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
 
-	mParams.addSeparator();
 	mParams.addPersistentParam("Enable cursors", &mShowHands, mShowHands);
 	mParams.addPersistentParam("Cursor persp", &mHandPosCoeff, mHandPosCoeff, "min=100. max=20000. step=1");
 	mParams.addPersistentParam("Cursor transparency", &mHandTransparencyCoeff, mHandTransparencyCoeff, "min=100. max=20000. step=1");
@@ -439,14 +423,6 @@ void DynaApp::setup()
 	int texUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
 	mMixerShader.uniform("tex", texUnits, 9);
 	mMixerShader.unbind();
-
-	mDofFbo = gl::Fbo( mFbo.getWidth(), mFbo.getHeight() );
-	mDofShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ), loadResource( RES_DOF_FRAG ) );
-	mDofShader.bind();
-	mDofShader.uniform( "rgb", 0 );
-	mDofShader.uniform( "depth", 1 );
-	mDofShader.uniform( "isize", Vec2f( 1.0 / mDofFbo.getWidth(), 1.0 / mDofFbo.getHeight() ) );
-	mDofShader.unbind();
 
 	sBrushes = loadTextures("brushes");
 	sPoseAnim = loadTextures("pose-anim");
@@ -503,8 +479,8 @@ void DynaApp::setup()
 	timeline().add( mGameTimeline );
 	setPoseTimeline();
 
-	//setFullScreen( true );
-	//hideCursor();
+	setFullScreen( true );
+	hideCursor();
 	params::PInterfaceGl::showAllParams( false );
 }
 
@@ -1138,34 +1114,6 @@ void DynaApp::drawGame()
 		glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 		mBloomFbo.unbindFramebuffer();
 
-		// dof
-		if ( mDof )
-		{
-			mDofFbo.bindFramebuffer();
-			gl::setMatricesWindow( mDofFbo.getSize(), false );
-			gl::setViewport( mDofFbo.getBounds() );
-
-			gl::clear( Color::black() );
-			gl::color( Color::white() );
-			if ( mDepthTexture && mColorTexture )
-			{
-				mColorTexture.bind( 0 );
-				mDepthTexture.bind( 1 );
-
-				mDofShader.bind();
-				mDofShader.uniform( "amount", mDofAmount );
-				mDofShader.uniform( "aperture", mDofAperture );
-				mDofShader.uniform( "focus", mDofFocus );
-				gl::drawSolidRect( mDofFbo.getBounds() );
-				mDofShader.unbind();
-
-				mColorTexture.unbind();
-				mDepthTexture.unbind();
-			}
-
-			mDofFbo.unbindFramebuffer();
-		}
-
 		// final
 		mOutputFbo.bindFramebuffer();
 		gl::setMatricesWindow( mOutputFbo.getSize(), false );
@@ -1183,11 +1131,8 @@ void DynaApp::drawGame()
 		mMixerShader.uniform( "enableTvLines", mEnableTvLines );
 
 		gl::enable( GL_TEXTURE_2D );
-		if ( mDof )
-			mDofFbo.bindTexture( 0 );
-		else
-			if ( mColorTexture )
-				mColorTexture.bind( 0 );
+		if ( mColorTexture )
+			mColorTexture.bind( 0 );
 
 		mFbo.getTexture().bind( 1 );
 		for (int i = 1; i < mBloomIterations; i++)
