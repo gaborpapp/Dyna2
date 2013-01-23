@@ -26,8 +26,6 @@
 #include "cinder/ImageIo.h"
 #include "cinder/Rand.h"
 
-#include "AntTweakBar.h"
-
 #include "Resources.h"
 
 #include "PParams.h"
@@ -106,16 +104,20 @@ void DynaGalleryApp::setup()
 	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 200 ), Vec2i( 16, 16 ));
 	mParams.addPersistentSizeAndPosition();
 
-	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
-	TwDefine(" TW_HELP visible=false ");
-
 	mParams.addSeparator();
 	mParams.addText("Visuals");
 	mParams.addPersistentParam("Video noise freq", &mVideoNoiseFreq, mVideoNoiseFreq, "min=0 max=11. step=.01");
 	mParams.addPersistentParam("Vignetting", &mEnableVignetting, mEnableVignetting);
 	mParams.addPersistentParam("TV lines", &mEnableTvLines, mEnableTvLines);
 	mParams.addSeparator();
-	mParams.addPersistentParam("Gallery folder", &mGalleryFolder, mGalleryFolder );
+	mParams.addPersistentParam("Gallery folder", &mGalleryFolder, mGalleryFolder, "", "" );
+	mParams.addButton( "Choose gallery folder",
+			[ this ]()
+			{
+				fs::path newPath = app::App::getFolderPath( this->mGalleryPath );
+				if ( !newPath.empty() )
+					this->mGalleryFolder = newPath.string();
+			} );
 	mParams.addPersistentParam("Check time", &mGalleryCheckTime, 1.0, "min=0.5 max=10.0 step=0.1" );
 
 	mParams.addSeparator();

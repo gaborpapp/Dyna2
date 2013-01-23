@@ -30,8 +30,6 @@
 #include "cinder/audio/Output.h"
 #include "cinder/audio/Io.h"
 
-#include "AntTweakBar.h"
-
 #include "ciMsaFluidSolver.h"
 #include "ciMsaFluidDrawerGl.h"
 
