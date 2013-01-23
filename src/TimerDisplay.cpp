@@ -10,41 +10,18 @@ using namespace std;
 using namespace ci;
 
 
-#if defined( CINDER_MAC )
-TimerDisplay::TimerDisplay( const string &bottomLeft,
-					  const string &bottomMiddle,
-					  const string &bottomRight,
-					  const string &dot0,
-					  const string &dot1 )
+TimerDisplay::TimerDisplay( const fs::path &bottomLeft,
+					  const fs::path &bottomMiddle,
+					  const fs::path &bottomRight,
+					  const fs::path &dot0,
+					  const fs::path &dot1 )
 {
-	mBottomLeft = loadImage( app::loadResource( bottomLeft ) );
-	mBottomMiddle = loadImage( app::loadResource( bottomMiddle ) );
-	mBottomRight = loadImage( app::loadResource( bottomRight ) );
-	mDot0 = loadImage( app::loadResource( dot0 ) );
-	mDot1 = loadImage( app::loadResource( dot1 ) );
+	mBottomLeft = loadImage( app::loadAsset( bottomLeft ) );
+	mBottomMiddle = loadImage( app::loadAsset( bottomMiddle ) );
+	mBottomRight = loadImage( app::loadAsset( bottomRight ) );
+	mDot0 = loadImage( app::loadAsset( dot0 ) );
+	mDot1 = loadImage( app::loadAsset( dot1 ) );
 }
-
-#elif defined( CINDER_MSW )
-TimerDisplay::TimerDisplay( const int mode )
-{
-	if( mode == 1 )
-	{
-		mBottomLeft = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_LEFT ) );
-		mBottomMiddle = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_MIDDLE ) );
-		mBottomRight = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_RIGHT ) );
-		mDot0 = loadImage( app::loadResource( RES_TIMER_POSE_DOT_0 ) );
-		mDot1 = loadImage( app::loadResource( RES_TIMER_POSE_DOT_1 ) );
-	}
-	else
-	{
-		mBottomLeft = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_LEFT ) );
-		mBottomMiddle = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_MIDDLE ) );
-		mBottomRight = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_RIGHT ) );
-		mDot0 = loadImage( app::loadResource( RES_TIMER_GAME_DOT_0 ) );
-		mDot1 = loadImage( app::loadResource( RES_TIMER_GAME_DOT_1 ) );
-	}
-}
-#endif
 
 void TimerDisplay::draw( float u )
 {

@@ -459,21 +459,19 @@ void DynaApp::setup()
 	// OpenNI
 	mKinectThread = thread( bind( &DynaApp::openKinect, this, fs::path() ) );
 
-#if defined( CINDER_MAC )
-	mPoseTimerDisplay = TimerDisplay( RES_TIMER_POSE_BOTTOM_LEFT,
-			RES_TIMER_POSE_BOTTOM_MIDDLE,
-			RES_TIMER_POSE_BOTTOM_RIGHT,
-			RES_TIMER_POSE_DOT_0,
-			RES_TIMER_POSE_DOT_1 );
-	mGameTimerDisplay = TimerDisplay( RES_TIMER_GAME_BOTTOM_LEFT,
-			RES_TIMER_GAME_BOTTOM_MIDDLE,
-			RES_TIMER_GAME_BOTTOM_RIGHT,
-			RES_TIMER_GAME_DOT_0,
-			RES_TIMER_GAME_DOT_1 );
-#elif defined( CINDER_MSW )
-	mPoseTimerDisplay = TimerDisplay( 1 );
-	mGameTimerDisplay = TimerDisplay( 2 );
-#endif
+	fs::path poseTimerGfxPath( "gfx/pose/" );
+	mPoseTimerDisplay = TimerDisplay( poseTimerGfxPath / "pose-bottom-left.png",
+									  poseTimerGfxPath / "pose-bottom-middle.png",
+									  poseTimerGfxPath / "pose-bottom-right.png",
+									  poseTimerGfxPath / "pose-dot-0.png",
+									  poseTimerGfxPath / "pose-dot-1.png" );
+
+	fs::path gameTimerGfxPath( "gfx/game/" );
+	mGameTimerDisplay = TimerDisplay( gameTimerGfxPath / "game-bottom-left.png",
+									  gameTimerGfxPath / "game-bottom-middle.png",
+									  gameTimerGfxPath / "game-bottom-right.png",
+									  gameTimerGfxPath / "game-dot-0.png",
+									  gameTimerGfxPath / "game-dot-1.png" );
 
 	Rand::randomize();
 
