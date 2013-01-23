@@ -124,7 +124,7 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		void screenshotThreadFn();
 		std::thread mScreenshotThread;
 		ConcurrentCircularBuffer< Surface > *mScreenshotSurfaces;
-		bool mScreenshotThreadShouldQuit = false;
+		bool mScreenshotThreadShouldQuit;
 
 		Surface mWatermark;
 
@@ -299,7 +299,8 @@ DynaApp::DynaApp() :
 	mState( STATE_IDLE ),
 	mShowHands( true ),
 	mPoseAnimTimeline( Timeline::create() ),
-	mGameTimeline( Timeline::create() )
+	mGameTimeline( Timeline::create() ),
+	mScreenshotThreadShouldQuit( false )
 {
 }
 

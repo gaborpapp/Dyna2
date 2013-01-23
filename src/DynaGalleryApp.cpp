@@ -26,6 +26,7 @@
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/ImageIo.h"
+#include "cinder/Timeline.h"
 #include "cinder/Rand.h"
 
 #include "Resources.h"
@@ -54,6 +55,7 @@ class DynaGalleryApp : public AppBasic
 		void draw();
 
 	private:
+		void setLogoTimeline();
 		void drawGallery();
 		void checkNewPicturesThread();
 		void addNewPictures();
@@ -73,6 +75,10 @@ class DynaGalleryApp : public AppBasic
 		string                mGalleryFolder;
 		float                 mGalleryCheckTime;
 
+		TimelineRef           mLogoTimeline;
+		ci::Anim< float >     mLogoOpacity;
+		gl::Texture           mLogo;
+
 		vector< Surface >     mNewImages;
 		std::recursive_mutex  mMutexNewImages;
 		set<string>           mFileNames;
@@ -90,6 +96,7 @@ DynaGalleryApp::DynaGalleryApp()
 : mVideoNoiseFreq( 11. )
 , mEnableVignetting( true )
 , mEnableTvLines( true )
+, mLogoTimeline( Timeline::create())
 {
 }
 
@@ -138,6 +145,10 @@ void DynaGalleryApp::setup()
 
 	mNewPicturesThreadShouldQuit = false;
 	mNewPicturesThread = shared_ptr< thread >( new thread( bind( &DynaGalleryApp::checkNewPicturesThread, this )));
+
+	fs::path logoPath( "gfx/dynaGallery/logo.png" );
+	mLogo = gl::Texture( loadImage( app::loadAsset( logoPath )));
+	setLogoTimeline();
 
 	// gallery
 	mGalleryPath = mGalleryFolder;
@@ -224,6 +235,23 @@ void DynaGalleryApp::update()
 	mGallery->update();
 }
 
+void DynaGalleryApp::setLogoTimeline()
+{
+	// logo
+	timeline().remove( mLogoTimeline );
+
+	mLogoTimeline->clear();
+	mLogoTimeline->setDefaultAutoRemove( false );
+	mLogoTimeline->apply( &mLogoOpacity, 0.f, 0.f, 5.f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.9f, .9f );
+
+	mLogoTimeline->appendTo( &mLogoOpacity, 0.9f, 0.9f, 3.f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 0.9f, 0.f, 1.f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.f, 5.f );
+	mLogoTimeline->setLoop( true );
+	timeline().add( mLogoTimeline );
+}
+
 void DynaGalleryApp::checkNewPicturesThread()
 {
 	while( ! mNewPicturesThreadShouldQuit )
@@ -283,6 +311,17 @@ void DynaGalleryApp::drawGallery()
 	mGallery->enableTvLines( mEnableTvLines );
 
 	mGallery->render( getWindowBounds());
+
+	// logo
+	gl::enableAlphaBlending();
+	gl::color( ColorA( 1., 1., 1., mLogoOpacity ));
+
+	Rectf rect( mLogo.getBounds() );
+	rect = rect.getCenteredFit( getWindowBounds(), true );
+	rect.scaleCentered( .5 );
+	gl::draw( mLogo, rect );
+	gl::color( Color::white() );
+	gl::disableAlphaBlending();
 }
 
 void DynaGalleryApp::draw()
