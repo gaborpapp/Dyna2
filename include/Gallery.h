@@ -17,6 +17,8 @@ class Gallery
 
 		void resize( int rows, int columns);
 		void refreshList();
+		void refreshPictures();
+		void setFolder( ci::fs::path &folder );
 
 		void addImage( ci::fs::path imagePath, int pictureIndex = -1 );
 		void zoomImage( int pictureIndex );

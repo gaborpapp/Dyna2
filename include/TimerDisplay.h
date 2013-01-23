@@ -9,12 +9,15 @@ class TimerDisplay
 {
 	public:
 		TimerDisplay() {}
+#if defined( CINDER_MAC )
 		TimerDisplay( const std::string &bottomLeft,
 					  const std::string &bottomMiddle,
 					  const std::string &bottomRight,
 					  const std::string &dot0,
 					  const std::string &dot1 );
-
+#elif defined( CINDER_MSW )
+		TimerDisplay( const int mode );
+#endif
 		void draw( float u );
 
 	private:

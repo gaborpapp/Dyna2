@@ -323,7 +323,11 @@ void DynaApp::setup()
 	gl::disableVerticalSync();
 
 	// params
+#if defined( CINDER_MAC )
 	string paramsXml = getResourcePath().string() + "/params.xml";
+#elif defined( CINDER_MSW )
+	string paramsXml = getAppPath().string() + "/params.xml";
+#endif
 	params::PInterfaceGl::load( paramsXml );
 
 	mParams = params::PInterfaceGl("Parameters", Vec2i(350, 700));
@@ -449,6 +453,7 @@ void DynaApp::setup()
 	// OpenNI
 	mKinectThread = thread( bind( &DynaApp::openKinect, this, fs::path() ) );
 
+#if defined( CINDER_MAC )
 	mPoseTimerDisplay = TimerDisplay( RES_TIMER_POSE_BOTTOM_LEFT,
 			RES_TIMER_POSE_BOTTOM_MIDDLE,
 			RES_TIMER_POSE_BOTTOM_RIGHT,
@@ -459,6 +464,10 @@ void DynaApp::setup()
 			RES_TIMER_GAME_BOTTOM_RIGHT,
 			RES_TIMER_GAME_DOT_0,
 			RES_TIMER_GAME_DOT_1 );
+#elif defined( CINDER_MSW )
+	mPoseTimerDisplay = TimerDisplay( 1 );
+	mGameTimerDisplay = TimerDisplay( 2 );
+#endif
 
 	Rand::randomize();
 

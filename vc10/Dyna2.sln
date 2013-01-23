@@ -1,0 +1,25 @@
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Dyna2", "Dyna2.vcxproj", "{EE7260C1-C0C7-4919-99CD-C394EE8A97B5}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DynaGallery", "DynaGallery.vcxproj", "{EF88846E-45A2-4AEC-8D7F-D0C71F4D3EBA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EE7260C1-C0C7-4919-99CD-C394EE8A97B5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EE7260C1-C0C7-4919-99CD-C394EE8A97B5}.Debug|Win32.Build.0 = Debug|Win32
+		{EE7260C1-C0C7-4919-99CD-C394EE8A97B5}.Release|Win32.ActiveCfg = Release|Win32
+		{EE7260C1-C0C7-4919-99CD-C394EE8A97B5}.Release|Win32.Build.0 = Release|Win32
+		{EF88846E-45A2-4AEC-8D7F-D0C71F4D3EBA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EF88846E-45A2-4AEC-8D7F-D0C71F4D3EBA}.Debug|Win32.Build.0 = Debug|Win32
+		{EF88846E-45A2-4AEC-8D7F-D0C71F4D3EBA}.Release|Win32.ActiveCfg = Release|Win32
+		{EF88846E-45A2-4AEC-8D7F-D0C71F4D3EBA}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

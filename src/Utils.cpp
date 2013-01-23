@@ -20,7 +20,11 @@ std::string timeStamp()
 	static int index = 0;
 
 	time(&ltime);
-	localtime_r(&ltime, &tm);
+#if defined( CINDER_MAC )
+	localtime_r( &ltime, &tm );
+#elif defined( CINDER_MSW )
+	localtime_s( &tm, &ltime );
+#endif
 	if (last_sec != tm.tm_sec)
 		index = 0;
 

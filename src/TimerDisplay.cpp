@@ -4,10 +4,13 @@
 #include "cinder/CinderMath.h"
 
 #include "TimerDisplay.h"
+#include "Resources.h"
 
 using namespace std;
 using namespace ci;
 
+
+#if defined( CINDER_MAC )
 TimerDisplay::TimerDisplay( const string &bottomLeft,
 					  const string &bottomMiddle,
 					  const string &bottomRight,
@@ -20,6 +23,28 @@ TimerDisplay::TimerDisplay( const string &bottomLeft,
 	mDot0 = loadImage( app::loadResource( dot0 ) );
 	mDot1 = loadImage( app::loadResource( dot1 ) );
 }
+
+#elif defined( CINDER_MSW )
+TimerDisplay::TimerDisplay( const int mode )
+{
+	if( mode == 1 )
+	{
+		mBottomLeft = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_LEFT ) );
+		mBottomMiddle = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_MIDDLE ) );
+		mBottomRight = loadImage( app::loadResource( RES_TIMER_POSE_BOTTOM_RIGHT ) );
+		mDot0 = loadImage( app::loadResource( RES_TIMER_POSE_DOT_0 ) );
+		mDot1 = loadImage( app::loadResource( RES_TIMER_POSE_DOT_1 ) );
+	}
+	else
+	{
+		mBottomLeft = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_LEFT ) );
+		mBottomMiddle = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_MIDDLE ) );
+		mBottomRight = loadImage( app::loadResource( RES_TIMER_GAME_BOTTOM_RIGHT ) );
+		mDot0 = loadImage( app::loadResource( RES_TIMER_GAME_DOT_0 ) );
+		mDot1 = loadImage( app::loadResource( RES_TIMER_GAME_DOT_1 ) );
+	}
+}
+#endif
 
 void TimerDisplay::draw( float u )
 {
