@@ -18,33 +18,33 @@
 #include <list>
 #include <map>
 
-#include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
+#include "cinder/audio/Io.h"
+#include "cinder/audio/Output.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/Cinder.h"
+#include "cinder/ConcurrentCircularBuffer.h"
 #include "cinder/ImageIo.h"
 #include "cinder/Timeline.h"
 #include "cinder/Rand.h"
-#include "cinder/audio/Output.h"
-#include "cinder/audio/Io.h"
 
-#include "ciMsaFluidSolver.h"
 #include "ciMsaFluidDrawerGl.h"
+#include "ciMsaFluidSolver.h"
 
 #include "Resources.h"
 
 #include "CiNI.h"
 
-#include "PParams.h"
 #include "DynaStroke.h"
-#include "Particles.h"
-#include "Utils.h"
-
-#include "TimerDisplay.h"
-#include "HandCursor.h"
 #include "Gallery.h"
+#include "HandCursor.h"
+#include "Particles.h"
+#include "PParams.h"
+#include "Utils.h"
+#include "TimerDisplay.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -120,8 +120,12 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		fs::path mWatermarkedPath;
 		string mScreenshotFolder; // mScreenshotPath as string that params can handle
 		string mWatermarkedFolder;
-		void saveScreenshot();
-		void threadedScreenshot( Surface snapshot );
+		void sendScreenshot();
+		void screenshotThreadFn();
+		std::thread mScreenshotThread;
+		ConcurrentCircularBuffer< Surface > *mScreenshotSurfaces;
+		bool mScreenshotThreadShouldQuit = false;
+
 		Surface mWatermark;
 
 		void setIdleState();
@@ -476,6 +480,10 @@ void DynaApp::setup()
 
 	mGallery = Gallery::create( mScreenshotPath );
 
+	// screenshots
+	mScreenshotSurfaces = new ConcurrentCircularBuffer<Surface>( 16 );
+	mScreenshotThread = thread( bind( &DynaApp::screenshotThreadFn, this ) );
+
 	timeline().add( mGameTimeline );
 	setPoseTimeline();
 
@@ -544,9 +552,12 @@ void DynaApp::shutdown()
 	params::PInterfaceGl::save();
 
 	mKinectThread.join();
+
+	mScreenshotThreadShouldQuit = true;
+	mScreenshotThread.join();
 }
 
-void DynaApp::saveScreenshot()
+void DynaApp::sendScreenshot()
 {
 	// flash
 	mFlash = 0;
@@ -556,45 +567,60 @@ void DynaApp::saveScreenshot()
 	audio::Output::play( mAudioShutter );
 
 	Surface snapshot( mOutputFbo.getTexture() );
-	dispatchSync( [&] { threadedScreenshot( snapshot ); } );
+	mScreenshotSurfaces->pushFront( snapshot );
 }
 
-void DynaApp::threadedScreenshot( Surface snapshot )
+void DynaApp::screenshotThreadFn()
 {
-	string filename = "snap-" + timeStamp() + ".png";
-	fs::path pngPath( mScreenshotFolder / fs::path( filename ) );
-
-	try
+	while ( !mScreenshotThreadShouldQuit )
 	{
-		if (!pngPath.empty())
+		if ( mScreenshotSurfaces->isNotEmpty() )
 		{
-			writeImage( pngPath, snapshot );
+			Surface snapshot;
+			mScreenshotSurfaces->popBack( &snapshot );
 
+			string filename = "snap-" + timeStamp() + ".png";
+			fs::path pngPath( mScreenshotFolder / fs::path( filename ) );
+
+			bool screenshotOk = false;
+			try
+			{
+				if (!pngPath.empty())
+				{
+					writeImage( pngPath, snapshot );
+
+					screenshotOk = true;
+				}
+			}
+			catch ( ... )
+			{
+				console() << "unable to save image file " << pngPath << endl;
+			}
+
+			// watermarked
+			snapshot.copyFrom( mWatermark, mWatermark.getBounds(),
+						snapshot.getSize() - mWatermark.getSize() );
+			fs::path pngPath2 = mWatermarkedPath / fs::path( "w" + filename );
+			try
+			{
+				if (!pngPath2.empty())
+				{
+					writeImage( pngPath2, snapshot );
+				}
+			}
+			catch ( ... )
+			{
+				console() << "unable to save image file " << pngPath2 << endl;
+			}
+
+			// this is moved after the disk writes to avoid lags in animating the
+			// new image zooming in, does not seem to help much
+			if ( screenshotOk )
 			{
 				lock_guard<recursive_mutex> lock( mMutex );
 				mNewImages.push_back( pngPath );
 			}
 		}
-	}
-	catch ( ... )
-	{
-		console() << "unable to save image file " << pngPath << endl;
-	}
-
-	// watermarked
-	snapshot.copyFrom( mWatermark, mWatermark.getBounds(),
-				snapshot.getSize() - mWatermark.getSize() );
-	pngPath = mWatermarkedPath / fs::path( "w" + filename );
-	try
-	{
-		if (!pngPath.empty())
-		{
-			writeImage( pngPath, snapshot );
-		}
-	}
-	catch ( ... )
-	{
-		console() << "unable to save image file " << pngPath << endl;
 	}
 }
 
@@ -645,7 +671,7 @@ void DynaApp::endGame()
 {
 	mState = STATE_GAME_SHOW_DRAWING;
 
-	saveScreenshot();
+	sendScreenshot();
 	clearStrokes();
 
 	// wait a bit then go back to idle state
@@ -690,7 +716,7 @@ void DynaApp::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_RETURN:
-			saveScreenshot();
+			sendScreenshot();
 			break;
 
 		case KeyEvent::KEY_ESCAPE:
