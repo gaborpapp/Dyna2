@@ -255,7 +255,7 @@ void DynaGalleryApp::checkNewPicturesThread()
 			}
 		}
 
-		sleep( mGalleryCheckTime * 1000 );
+		ci::sleep( mGalleryCheckTime * 1000 );
 	}
 }
 
