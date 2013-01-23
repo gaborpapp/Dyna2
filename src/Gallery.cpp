@@ -30,6 +30,10 @@ void Gallery::setup( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */
 	mParams.addPersistentParam("Flip duration", &Picture::sFlipDuration, 2.5, "min=.5 max=10. step=.5");
 	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
 
+	mParams.addPersistentParam("Zoom idle time", &mZoomIdleTime, 2.f, "min=.5 max=10. step=.5 "
+		"help='Idle time before zoom, erratic zooming caused by the slow disk writes can be "
+		"fixed by increasing this value.'" );
+	mParams.addPersistentParam("Zoom duration", &mZoomDurationTime, 1.5f, "min=.5 max=10. step=.5");
 	setFolder( folder );
 
 	reset();
@@ -53,7 +57,13 @@ void Gallery::resize( int rows, int columns )
 
 void Gallery::addImage( fs::path imagePath, int pictureIndex /* = -1 */ )
 {
-	mTextures.push_back( gl::Texture( loadImage( imagePath )));
+	gl::Texture texture( loadImage( imagePath ));
+	addImage( texture, pictureIndex );
+}
+
+void Gallery::addImage( gl::Texture texture, int pictureIndex /* = -1 */ )
+{
+	mTextures.push_back( texture );
 	if( mTextures.size() > mMaxTextures )
 		mTextures.erase( mTextures.begin(), mTextures.begin() + mTextures.size() - mMaxTextures );
 
@@ -231,8 +241,8 @@ void Gallery::Picture::startZoom()
 	zooming = true;
 	flipping = false;
 	mZoom = 0.;
-	mGallery->mTimeline->apply( &mZoom, 0.f, 0.f, 1.f );
-	mGallery->mTimeline->appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseOutCirc());
+	mGallery->mTimeline->apply( &mZoom, 0.f, 0.f, mGallery->mZoomIdleTime );
+	mGallery->mTimeline->appendTo( &mZoom, 0.f, 1.f, mGallery->mZoomDurationTime, EaseOutCirc());
 	appearanceTime = -1;
 }
 

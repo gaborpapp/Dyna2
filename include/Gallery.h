@@ -33,6 +33,8 @@ class Gallery : public std::enable_shared_from_this< Gallery >
 		const ci::fs::path &getFolder() const { return mGalleryFolder; }
 
 		void addImage( ci::fs::path imagePath, int pictureIndex = -1 );
+		void addImage( ci::gl::Texture texture, int pictureIndex = -1 );
+
 		void zoomImage( int pictureIndex );
 
 		void reset();
@@ -104,6 +106,8 @@ class Gallery : public std::enable_shared_from_this< Gallery >
 		bool mEnableVignetting;
 		float mFlipFrequency;
 		double mLastFlip;
+		float mZoomIdleTime;
+		float mZoomDurationTime;
 
 		std::vector< Picture > mPictures;
 

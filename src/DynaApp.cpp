@@ -258,7 +258,7 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 
 		GalleryRef mGallery;
 
-		vector< fs::path > mNewImages;
+		vector< Surface > mNewImages;
 		std::recursive_mutex mMutex;
 };
 
@@ -582,14 +582,16 @@ void DynaApp::screenshotThreadFn()
 			string filename = "snap-" + timeStamp() + ".png";
 			fs::path pngPath( mScreenshotFolder / fs::path( filename ) );
 
-			bool screenshotOk = false;
 			try
 			{
 				if (!pngPath.empty())
 				{
 					writeImage( pngPath, snapshot );
 
-					screenshotOk = true;
+					{
+						lock_guard<recursive_mutex> lock( mMutex );
+						mNewImages.push_back( snapshot );
+					}
 				}
 			}
 			catch ( ... )
@@ -598,27 +600,20 @@ void DynaApp::screenshotThreadFn()
 			}
 
 			// watermarked
-			snapshot.copyFrom( mWatermark, mWatermark.getBounds(),
-						snapshot.getSize() - mWatermark.getSize() );
+			Surface snapshotw = snapshot.clone();
+			snapshotw.copyFrom( mWatermark, mWatermark.getBounds(),
+						snapshotw.getSize() - mWatermark.getSize() );
 			fs::path pngPath2 = mWatermarkedPath / fs::path( "w" + filename );
 			try
 			{
 				if (!pngPath2.empty())
 				{
-					writeImage( pngPath2, snapshot );
+					writeImage( pngPath2, snapshotw );
 				}
 			}
 			catch ( ... )
 			{
 				console() << "unable to save image file " << pngPath2 << endl;
-			}
-
-			// this is moved after the disk writes to avoid lags in animating the
-			// new image zooming in, does not seem to help much
-			if ( screenshotOk )
-			{
-				lock_guard<recursive_mutex> lock( mMutex );
-				mNewImages.push_back( pngPath );
 			}
 		}
 	}
@@ -1050,8 +1045,7 @@ void DynaApp::update()
 	// add new images saved from thread to gallery
 	{
 		lock_guard<recursive_mutex> lock( mMutex );
-		for ( vector< fs::path >::const_iterator it = mNewImages.begin();
-				it != mNewImages.end(); ++it )
+		for ( auto it = mNewImages.begin(); it != mNewImages.end(); ++it )
 		{
 			int toPic = -1;
 			if ( it == mNewImages.end() - 1 )
