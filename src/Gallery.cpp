@@ -65,6 +65,7 @@ void Gallery::resize( int rows, int columns )
 		mRows    = rows;
 		mColumns = columns;
 
+		refreshList();
 		refreshPictures();
 
 		mLastRows = mRows;

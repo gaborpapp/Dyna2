@@ -163,8 +163,8 @@ void DynaGalleryApp::setup()
 
 	mGallery = Gallery::create( mGalleryPath );
 
-	//setFullScreen( true );
-	//hideCursor();
+	setFullScreen( true );
+	hideCursor();
 
 	params::PInterfaceGl::showAllParams( false );
 }
