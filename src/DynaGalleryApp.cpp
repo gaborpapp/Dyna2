@@ -114,7 +114,7 @@ void DynaGalleryApp::setup()
 	// params
 	params::PInterfaceGl::load( "params.xml" );
 
-	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 200 ), Vec2i( 16, 16 ));
+	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 220 ), Vec2i( 16, 16 ));
 	mParams.addPersistentSizeAndPosition();
 
 	mParams.addSeparator();

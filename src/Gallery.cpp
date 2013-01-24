@@ -17,10 +17,10 @@ Gallery::Gallery() :
 	mLastRows( -1 ),
 	mLastColumns( -1 )
 {
-	mImageLoaderThread = shared_ptr< thread >( new thread( bind( &Gallery::loaderThreadFn, this ) ) );
-
 	mSurfaces = new ConcurrentCircularBuffer< SurfaceOut >( 16 );
 	mImagePaths = new ConcurrentCircularBuffer< ImageIn >( 16 );
+
+	mImageLoaderThread = shared_ptr< thread >( new thread( bind( &Gallery::loaderThreadFn, this ) ) );
 }
 
 Gallery::~Gallery()

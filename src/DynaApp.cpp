@@ -973,11 +973,11 @@ void DynaApp::update()
 				//console() << "user hands " << id << " " << mUserInitialized[ id ].mInitialized << endl;
 				map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
 				map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
-				UserInit *ui = &(initIt->second);
 
 				// check if the user has strokes already
-				if ( strokeIt != mUserStrokes.end() )
+				if ( strokeIt != mUserStrokes.end() && initIt != mUserInitialized.end())
 				{
+					UserInit    *ui = &(initIt->second);
 					UserStrokes *us = &(strokeIt->second);
 
 					XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
