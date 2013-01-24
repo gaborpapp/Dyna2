@@ -152,7 +152,14 @@ void DynaGalleryApp::setup()
 
 	// gallery
 	mGalleryPath = mGalleryFolder;
-	fs::create_directory( mGalleryPath );
+	try
+	{
+		fs::create_directories( mGalleryPath );
+	}
+	catch ( fs::filesystem_error &exc )
+	{
+		console() << exc.what() << endl;
+	}
 
 	mGallery = Gallery::create( mGalleryPath );
 
@@ -256,31 +263,41 @@ void DynaGalleryApp::checkNewPicturesThread()
 {
 	while( ! mNewPicturesThreadShouldQuit )
 	{
-		fs::directory_iterator it( mGalleryPath );
-
-		for( ; it != fs::directory_iterator(); ++it )
+		try
 		{
-			if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
+			fs::directory_iterator it( mGalleryPath );
+
+			for( ; it != fs::directory_iterator(); ++it )
 			{
-				lock_guard<recursive_mutex> lock( mMutexFileNames );
-				if( mFileNames.find( it->path().filename().string()) == mFileNames.end())
+				if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
 				{
-					try
+					lock_guard<recursive_mutex> lock( mMutexFileNames );
+					if( mFileNames.find( it->path().filename().string()) == mFileNames.end())
 					{
-						Surface surface = loadImage( it->path());
-
+						try
 						{
-							lock_guard<recursive_mutex> lock( mMutexNewImages );
-							mNewImages.push_back( surface );
-						}
+							Surface surface = loadImage( it->path());
 
-						mFileNames.insert( it->path().filename().string());
-					}
-					catch( const ImageIoException &exc )
-					{
+							{
+								lock_guard<recursive_mutex> lock( mMutexNewImages );
+								mNewImages.push_back( surface );
+							}
+
+							mFileNames.insert( it->path().filename().string());
+						}
+						catch( const ImageIoException &exc )
+						{
+						}
 					}
 				}
+
+				// quits sooner if there are a lot of files
+				if ( mNewPicturesThreadShouldQuit )
+					break;
 			}
+		}
+		catch ( fs::filesystem_error &exc )
+		{
 		}
 
 		ci::sleep( mGalleryCheckTime * 1000 );

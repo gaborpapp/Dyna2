@@ -476,8 +476,15 @@ void DynaApp::setup()
 	mScreenshotPath = mScreenshotFolder;
 	mWatermarkedPath = mWatermarkedFolder;
 
-	fs::create_directory( mScreenshotPath );
-	fs::create_directory( mWatermarkedPath );
+	try
+	{
+		fs::create_directories( mScreenshotPath );
+		fs::create_directories( mWatermarkedPath );
+	}
+	catch ( fs::filesystem_error &exc )
+	{
+		console() << exc.what() << endl;
+	}
 
 	mGallery = Gallery::create( mScreenshotPath );
 

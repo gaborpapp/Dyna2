@@ -122,13 +122,18 @@ void Gallery::refreshList()
 {
 	mFiles.clear();
 
-	for( fs::directory_iterator it( mGalleryFolder ); it != fs::directory_iterator(); ++it )
+	try
 	{
-		if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
+		for( fs::directory_iterator it( mGalleryFolder ); it != fs::directory_iterator(); ++it )
 		{
-			mFiles.push_back( mGalleryFolder / it->path().filename());
+			if( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ))
+			{
+				mFiles.push_back( mGalleryFolder / it->path().filename());
+			}
 		}
 	}
+	catch ( fs::filesystem_error &exc )
+	{ }
 }
 
 void Gallery::refreshPictures()
