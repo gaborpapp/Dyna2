@@ -25,6 +25,7 @@
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/ip/Blend.h"
 #include "cinder/Cinder.h"
 #include "cinder/ConcurrentCircularBuffer.h"
 #include "cinder/ImageIo.h"
@@ -432,7 +433,7 @@ void DynaApp::setup()
 	sBrushes = loadTextures("brushes");
 	sPoseAnim = loadTextures("pose-anim");
 
-	mWatermark = loadImage( loadResource( RES_WATERMARK ) );
+	mWatermark = loadImage( loadAsset( "gfx/watermark.png" ) );
 
 	// audio
 	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
@@ -609,8 +610,7 @@ void DynaApp::screenshotThreadFn()
 
 			// watermarked
 			Surface snapshotw = snapshot.clone();
-			snapshotw.copyFrom( mWatermark, mWatermark.getBounds(),
-						snapshotw.getSize() - mWatermark.getSize() );
+			ip::blend( &snapshotw, mWatermark, snapshotw.getBounds() );
 			fs::path pngPath2 = mWatermarkedPath / fs::path( "w" + filename );
 			try
 			{
