@@ -250,10 +250,10 @@ void DynaGalleryApp::setLogoTimeline()
 	mLogoTimeline->clear();
 	mLogoTimeline->setDefaultAutoRemove( false );
 	mLogoTimeline->apply( &mLogoOpacity, 0.f, 0.f, 5.f );
-	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.9f, .9f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 1.0f, .9f );
 
-	mLogoTimeline->appendTo( &mLogoOpacity, 0.9f, 0.9f, 3.f );
-	mLogoTimeline->appendTo( &mLogoOpacity, 0.9f, 0.f, 1.f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 1.0f, 3.f );
+	mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 0.f, 1.f );
 	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.f, 5.f );
 	mLogoTimeline->setLoop( true );
 	timeline().add( mLogoTimeline );
@@ -335,7 +335,6 @@ void DynaGalleryApp::drawGallery()
 
 	Rectf rect( mLogo.getBounds() );
 	rect = rect.getCenteredFit( getWindowBounds(), true );
-	rect.scaleCentered( .5 );
 	gl::draw( mLogo, rect );
 	gl::color( Color::white() );
 	gl::disableAlphaBlending();
