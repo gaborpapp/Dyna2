@@ -89,7 +89,7 @@ class DynaGalleryApp : public AppBasic
 
 void DynaGalleryApp::prepareSettings( Settings *settings )
 {
-	settings->setWindowSize( 1024, 768 );
+	settings->setWindowSize( 640, 480 );
 }
 
 DynaGalleryApp::DynaGalleryApp()

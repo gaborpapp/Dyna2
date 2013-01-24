@@ -72,6 +72,11 @@ void Gallery::resize( int rows, int columns )
 	}
 }
 
+void Gallery::addImage( fs::path imagePath, int pictureIndex /* = -1 */ )
+{
+	mImagePaths->tryPushFront( ImageIn( imagePath, pictureIndex ) );
+}
+
 void Gallery::addImage( gl::Texture texture, int pictureIndex /* = -1 */ )
 {
 	mTextures.push_back( texture );

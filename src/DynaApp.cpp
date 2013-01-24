@@ -929,21 +929,21 @@ void DynaApp::update()
 				mState = STATE_IDLE_POSE;
 			}
 			else
-				if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
+			if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
+			{
+				mState = STATE_GAME_POSE;
+				// clear all user pose start times
+				double currentTime = getElapsedSeconds();
+				map< unsigned, UserInit >::iterator initIt;
+				for ( initIt = mUserInitialized.begin(); initIt != mUserInitialized.end(); ++initIt )
 				{
-					mState = STATE_GAME_POSE;
-					// clear all user pose start times
-					double currentTime = getElapsedSeconds();
-					map< unsigned, UserInit >::iterator initIt;
-					for ( initIt = mUserInitialized.begin(); initIt != mUserInitialized.end(); ++initIt )
+					UserInit *ui = &(initIt->second);
+					for ( int i = 0; i < UserInit::JOINTS; i++ )
 					{
-						UserInit *ui = &(initIt->second);
-						for ( int i = 0; i < UserInit::JOINTS; i++ )
-						{
-							ui->mPoseTimeStart[ i ] = currentTime;
-						}
+						ui->mPoseTimeStart[ i ] = currentTime;
 					}
 				}
+			}
 
 			// change state when pose is cancelled
 			if ( ( ( mState == STATE_GAME_POSE ) || ( mState == STATE_IDLE_POSE ) ) &&
@@ -954,13 +954,13 @@ void DynaApp::update()
 					poseLostStart = currentTime;
 				}
 				else
-					if ( ( currentTime - poseLostStart ) > .5 )
-					{
-						if ( mGameTimer > .0 )
-							mState = STATE_GAME;
-						else
-							mState = STATE_IDLE;
-					}
+				if ( ( currentTime - poseLostStart ) > .5 )
+				{
+					if ( mGameTimer > .0 )
+						mState = STATE_GAME;
+					else
+						mState = STATE_IDLE;
+				}
 			}
 
 			// NI user hands
@@ -975,7 +975,7 @@ void DynaApp::update()
 				map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
 
 				// check if the user has strokes already
-				if ( strokeIt != mUserStrokes.end() && initIt != mUserInitialized.end())
+				if ( strokeIt != mUserStrokes.end() && initIt != mUserInitialized.end() )
 				{
 					UserInit    *ui = &(initIt->second);
 					UserStrokes *us = &(strokeIt->second);
