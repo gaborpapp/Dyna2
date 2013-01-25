@@ -4,6 +4,7 @@
 #include "cinder/gl/gl.h"
 #include "cinder/Easing.h"
 #include "cinder/CinderMath.h"
+#include "cinder/Utilities.h"
 
 #include "Gallery.h"
 
@@ -108,6 +109,8 @@ void Gallery::loaderThreadFn()
 				app::console() << "failed to load " << image.mPath.string() << endl;
 			}
 		}
+
+		ci::sleep( 100 );
 	}
 }
 

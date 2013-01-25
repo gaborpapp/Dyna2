@@ -95,6 +95,11 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 		TimelineRef mPoseAnimTimeline;
 		TimelineRef mGameTimeline;
 		void setPoseTimeline();
+		float mLastLogoEaseIn, mLogoEaseIn;
+		float mLastLogoShowDuration, mLogoShowDuration;
+		float mLastLogoEaseOut, mLogoEaseOut;
+		float mLastLogoPlayDuration, mLogoPlayDuration;
+		float mLastLogoHideDuration, mLogoHideDuration;
 
 		ci::Anim< float > mPoseAnimOpacity;
 		ci::Anim< int > mPoseAnimFrame;
@@ -299,9 +304,9 @@ DynaApp::DynaApp() :
 	mHandTransparencyCoeff( 465. ),
 	mState( STATE_IDLE ),
 	mShowHands( true ),
-	mPoseAnimTimeline( Timeline::create() ),
 	mGameTimeline( Timeline::create() ),
-	mScreenshotThreadShouldQuit( false )
+	mScreenshotThreadShouldQuit( false ),
+	mLastLogoEaseIn( -1.f )
 {
 }
 
@@ -381,6 +386,12 @@ void DynaApp::setup()
 	mParams.addPersistentParam("Enable cursors", &mShowHands, mShowHands);
 	mParams.addPersistentParam("Cursor persp", &mHandPosCoeff, mHandPosCoeff, "min=100. max=20000. step=1");
 	mParams.addPersistentParam("Cursor transparency", &mHandTransparencyCoeff, mHandTransparencyCoeff, "min=100. max=20000. step=1");
+	mParams.addText("Logo/Animation");
+	mParams.addPersistentParam( "Ease in", &mLogoEaseIn, .9f, "min=0 max=10 step=.1" );
+	mParams.addPersistentParam( "Show duration", &mLogoShowDuration, 3.f, "min=0 max=60 step=.5" );
+	mParams.addPersistentParam( "Play duration", &mLogoPlayDuration, .9f, "min=0 max=60 step=.5" );
+	mParams.addPersistentParam( "Ease out", &mLogoEaseOut, 1.f, "min=0 max=10 step=.1" );
+	mParams.addPersistentParam( "Hide duration", &mLogoHideDuration, 5.f, "min=0 max=50 step=.5" );
 
 	mParams.addSeparator();
 	mParams.addText("Game logic");
@@ -541,19 +552,31 @@ void DynaApp::openKinect( const fs::path &path )
 void DynaApp::setPoseTimeline()
 {
 	// pose anim
-	mPoseAnimTimeline->clear();
+	if ( mPoseAnimTimeline )
+		mPoseAnimTimeline->removeSelf();
+
+	// NOTE: recreating the timeline each time is the only way it seems to work,
+	// none of removeTarget( &mLogoOpacity ), clear() or remove() and and() worked.
+	mPoseAnimTimeline = Timeline::create();
+	timeline().add( mPoseAnimTimeline );
 	mPoseAnimTimeline->setDefaultAutoRemove( false );
-	mPoseAnimTimeline->apply( &mPoseAnimOpacity, 0.f, 0.f, 4.f );
-	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 1.f, .9f );
+	mPoseAnimTimeline->apply( &mPoseAnimOpacity, 0.f, 0.f, mLogoHideDuration * .5f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 1.f, mLogoEaseIn );
 
-	mPoseAnimTimeline->apply( &mPoseAnimFrame, 0, 0, 5.f );
-	mPoseAnimTimeline->appendTo( &mPoseAnimFrame, 0, (int)(sPoseAnim.size() - 1), .9f );
+	mPoseAnimTimeline->apply( &mPoseAnimFrame, 0, 0, mLogoHideDuration * .5f + mLogoEaseIn );
+	mPoseAnimTimeline->appendTo( &mPoseAnimFrame, 0, (int)(sPoseAnim.size() - 1), mLogoPlayDuration );
 
-	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 1.f, 2.f );
-	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 0.f, 1.f );
-	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 0.f, 1.f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 1.f, mLogoShowDuration );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 0.f, mLogoEaseOut );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 0.f, mLogoHideDuration * .5f );
 	mPoseAnimTimeline->setLoop( true );
 	timeline().add( mPoseAnimTimeline );
+
+	mLastLogoEaseIn = mLogoEaseIn;
+	mLastLogoShowDuration = mLogoShowDuration;
+	mLastLogoEaseOut = mLogoEaseOut;
+	mLastLogoPlayDuration = mLogoPlayDuration;
+	mLastLogoHideDuration = mLogoHideDuration;
 }
 
 void DynaApp::shutdown()
@@ -806,6 +829,15 @@ void DynaApp::update()
 	static double poseLostStart = 0;
 
 	mFps = getAverageFps();
+
+	if ( ( mLastLogoEaseIn != mLogoEaseIn ) ||
+		 ( mLastLogoShowDuration != mLogoShowDuration ) ||
+		 ( mLastLogoPlayDuration != mLogoPlayDuration ) ||
+		 ( mLastLogoEaseOut != mLogoEaseOut ) ||
+		 ( mLastLogoHideDuration != mLogoHideDuration ) )
+	{
+		setPoseTimeline();
+	}
 
 	// screenshot folder updated
 	if ( mScreenshotPath != mScreenshotFolder )

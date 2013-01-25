@@ -79,6 +79,11 @@ class DynaGalleryApp : public AppBasic
 		ci::Anim< float >     mLogoOpacity;
 		gl::Texture           mLogo;
 
+		float                 mLogoEaseIn, mLastLogoEaseIn;
+		float                 mLogoShowDuration, mLastLogoShowDuration;
+		float                 mLogoEaseOut, mLastLogoEaseOut;
+		float                 mLogoHideDuration, mLastLogoHideDuration;
+
 		vector< Surface >     mNewImages;
 		std::recursive_mutex  mMutexNewImages;
 		set<string>           mFileNames;
@@ -93,10 +98,11 @@ void DynaGalleryApp::prepareSettings( Settings *settings )
 }
 
 DynaGalleryApp::DynaGalleryApp()
-: mVideoNoiseFreq( 11. )
+: mVideoNoiseFreq( 11.f )
 , mEnableVignetting( true )
 , mEnableTvLines( true )
-, mLogoTimeline( Timeline::create())
+, mLogoOpacity( 0.f )
+, mLastLogoEaseIn( -1.f )
 {
 }
 
@@ -114,8 +120,14 @@ void DynaGalleryApp::setup()
 	// params
 	params::PInterfaceGl::load( "params.xml" );
 
-	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 220 ), Vec2i( 16, 16 ));
+	mParams = params::PInterfaceGl("Parameters", Vec2i( 300, 300 ), Vec2i( 16, 16 ));
 	mParams.addPersistentSizeAndPosition();
+
+	mParams.addText("Logo");
+	mParams.addPersistentParam( "Ease in", &mLogoEaseIn, .9f, "min=0 max=10 step=.1" );
+	mParams.addPersistentParam( "Show duration", &mLogoShowDuration, 3.f, "min=0 max=60 step=.5" );
+	mParams.addPersistentParam( "Ease out", &mLogoEaseOut, 1.f, "min=0 max=10 step=.1" );
+	mParams.addPersistentParam( "Hide duration", &mLogoHideDuration, 5.f, "min=0 max=50 step=.5" );
 
 	mParams.addSeparator();
 	mParams.addText("Visuals");
@@ -148,7 +160,6 @@ void DynaGalleryApp::setup()
 
 	fs::path logoPath( "gfx/dynaGallery/logo.png" );
 	mLogo = gl::Texture( loadImage( app::loadAsset( logoPath )));
-	setLogoTimeline();
 
 	// gallery
 	mGalleryPath = mGalleryFolder;
@@ -221,6 +232,14 @@ void DynaGalleryApp::update()
 {
 	mFps = getAverageFps();
 
+	if( ( mLastLogoEaseIn != mLogoEaseIn ) ||
+		( mLastLogoShowDuration != mLogoShowDuration ) ||
+		( mLastLogoEaseOut != mLogoEaseOut ) ||
+		( mLastLogoHideDuration != mLogoHideDuration ))
+	{
+		setLogoTimeline();
+	}
+
 	if( mGalleryPath != mGalleryFolder )
 	{
 		if( ! fs::exists( fs::path( mGalleryFolder )))
@@ -244,19 +263,29 @@ void DynaGalleryApp::update()
 
 void DynaGalleryApp::setLogoTimeline()
 {
-	// logo
-	timeline().remove( mLogoTimeline );
+	if ( mLogoTimeline )
+		mLogoTimeline->removeSelf();
 
-	mLogoTimeline->clear();
-	mLogoTimeline->setDefaultAutoRemove( false );
-	mLogoTimeline->apply( &mLogoOpacity, 0.f, 0.f, 5.f );
-	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 1.0f, .9f );
-
-	mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 1.0f, 3.f );
-	mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 0.f, 1.f );
-	mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.f, 5.f );
-	mLogoTimeline->setLoop( true );
+	// NOTE: recreating the timeline eact time is the only way it seems to work,
+	// none of removeTarget( &mLogoOpacity ), clear() or remove() and and() worked.
+	mLogoTimeline = Timeline::create();
 	timeline().add( mLogoTimeline );
+	mLogoTimeline->setDefaultAutoRemove( false );
+	mLogoTimeline->apply( &mLogoOpacity, 0.f, 0.f, mLogoHideDuration * .5f );
+	if ( mLogoEaseIn > 0.f )
+		mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 1.0f, mLogoEaseIn );
+	if ( mLogoShowDuration > 0.f )
+		mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 1.0f, mLogoShowDuration );
+	if ( mLogoEaseOut > 0.f )
+		mLogoTimeline->appendTo( &mLogoOpacity, 1.0f, 0.f, mLogoEaseOut );
+	if ( mLogoHideDuration > 0.f )
+		mLogoTimeline->appendTo( &mLogoOpacity, 0.f, 0.f, mLogoHideDuration * .5f );
+	mLogoTimeline->setLoop( true );
+
+	mLastLogoEaseIn = mLogoEaseIn;
+	mLastLogoShowDuration = mLogoShowDuration;
+	mLastLogoEaseOut = mLogoEaseOut;
+	mLastLogoHideDuration = mLogoHideDuration;
 }
 
 void DynaGalleryApp::checkNewPicturesThread()
