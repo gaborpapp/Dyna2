@@ -8,7 +8,8 @@ env = Environment()
 env['APP_TARGET'] = 'DynaApp'
 env['APP_SOURCES'] = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp',
 		'TimerDisplay.cpp', 'HandCursor.cpp', 'PParams.cpp', 'Gallery.cpp']
-env['ASSETS'] = ['brushes/*', 'pose-anim/*', 'gfx/game/*', 'gfx/pose/*', 'gfx/watermark.png']
+env['ASSETS'] = ['brushes/*', 'pose-anim/*', 'gfx/game/*', 'gfx/pose/*', 'gfx/watermark.png',
+		'gfx/logo.png']
 env['RESOURCES'] = ['shaders/*', 'audio/*', 'gfx/cursors/*']
 env['ICON'] = '../resources/dynani.icns'
 env['DEBUG'] = 0

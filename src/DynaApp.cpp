@@ -134,6 +134,9 @@ class DynaApp : public AppBasic, mndl::ni::UserTracker::Listener
 
 		Surface mWatermark;
 
+		bool mOverlay;
+		gl::Texture mBrandingOverlay;
+
 		void setIdleState();
 		void endGame();
 
@@ -387,6 +390,7 @@ void DynaApp::setup()
 	mParams.addPersistentParam("Cursor persp", &mHandPosCoeff, mHandPosCoeff, "min=100. max=20000. step=1");
 	mParams.addPersistentParam("Cursor transparency", &mHandTransparencyCoeff, mHandTransparencyCoeff, "min=100. max=20000. step=1");
 	mParams.addText("Logo/Animation");
+	mParams.addPersistentParam( "Logo overlay", &mOverlay, true );
 	mParams.addPersistentParam( "Ease in", &mLogoEaseIn, .9f, "min=0 max=10 step=.1" );
 	mParams.addPersistentParam( "Show duration", &mLogoShowDuration, 3.f, "min=0 max=60 step=.5" );
 	mParams.addPersistentParam( "Play duration", &mLogoPlayDuration, .9f, "min=0 max=60 step=.5" );
@@ -445,6 +449,7 @@ void DynaApp::setup()
 	sPoseAnim = loadTextures("pose-anim");
 
 	mWatermark = loadImage( loadAsset( "gfx/watermark.png" ) );
+	mBrandingOverlay = loadImage( loadAsset( "gfx/logo.png" ) );
 
 	// audio
 	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
@@ -1285,8 +1290,18 @@ void DynaApp::draw()
 	}
 	gl::disableAlphaBlending();
 
+	if ( mOverlay )
+	{
+		gl::enableAlphaBlending();
+		gl::color( Color::white() );
+		Rectf rect( mBrandingOverlay.getBounds() );
+		rect = rect.getCenteredFit( getWindowBounds(), true );
+		gl::draw( mBrandingOverlay, rect );
+		gl::disableAlphaBlending();
+	}
+
 	params::InterfaceGl::draw();
 }
 
-CINDER_APP_BASIC(DynaApp, RendererGl( RendererGl::AA_NONE ))
+CINDER_APP_BASIC( DynaApp, RendererGl( RendererGl::AA_NONE ) )
 
